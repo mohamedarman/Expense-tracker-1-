@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   Clock,
   Trash2,
-  Sparkles,
   ArrowRight,
   AlertCircle,
   X,
@@ -194,7 +193,7 @@ export const StudentHubView: React.FC<StudentHubViewProps> = ({
       </div>
 
       {/* Daily Velocity Simulator */}
-      <div className="p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-teal-950/20 to-slate-900 border border-teal-500/30 space-y-4">
+      <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
         <div className="flex items-center gap-2">
           <Calculator className="w-4 h-4 text-teal-400" />
           <h2 className="text-sm font-bold text-white">Interactive Daily Allowance Simulator</h2>
@@ -361,12 +360,10 @@ export const StudentHubView: React.FC<StudentHubViewProps> = ({
               >
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-200">{d.personName}</span>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    d.type === 'owes_you'
-                      ? 'bg-emerald-500/15 text-emerald-400'
-                      : 'bg-rose-500/15 text-rose-400'
+                  <span className={`text-[11px] font-semibold font-mono ${
+                    d.type === 'owes_you' ? 'text-emerald-400' : 'text-rose-400'
                   }`}>
-                    {d.type === 'owes_you' ? 'Owes You' : 'You Owe'}
+                    {d.type === 'owes_you' ? 'Owes you' : 'You owe'}
                   </span>
                 </div>
 
@@ -394,7 +391,7 @@ export const StudentHubView: React.FC<StudentHubViewProps> = ({
                         : 'bg-teal-500/15 text-teal-300 hover:bg-teal-500/25'
                     }`}
                   >
-                    {d.status === 'settled' ? 'Settled ✓' : 'Mark Settled'}
+                    {d.status === 'settled' ? 'Settled' : 'Mark Settled'}
                   </button>
                   <button
                     onClick={() => handleDeleteDebt(d.id)}

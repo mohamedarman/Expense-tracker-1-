@@ -1,17 +1,27 @@
 import React from 'react';
 import {
-  Wallet,
   AlertTriangle,
   ArrowDownLeft,
   Calendar,
-  Sparkles,
   CheckCircle2,
   Plus,
-  Target,
   ChevronRight,
-  TrendingUp,
+  Utensils,
+  Coffee,
+  Printer,
+  Bus,
+  BookOpen,
 } from 'lucide-react';
-import { User, Transaction, BudgetResponse, RecurringPayment, SavingsGoal, AnalyticsResponse, FinancialInsight } from '../types.ts';
+import {
+  User,
+  Transaction,
+  BudgetResponse,
+  RecurringPayment,
+  SavingsGoal,
+  AnalyticsResponse,
+  FinancialInsight,
+} from '../types.ts';
+import { NavTab } from './Sidebar.tsx';
 
 interface DashboardViewProps {
   user: User;
@@ -23,7 +33,7 @@ interface DashboardViewProps {
   analytics: AnalyticsResponse | null;
   insights: FinancialInsight[];
   onOpenAddTx: (defaultKind?: 'expense' | 'income') => void;
-  onNavigateTab: (tab: any) => void;
+  onNavigateTab: (tab: NavTab) => void;
   onLogRecurring: (id: string) => void;
   onEditTx: (tx: Transaction) => void;
 }
@@ -36,7 +46,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   recurring,
   goals,
   analytics,
-  insights,
   onOpenAddTx,
   onNavigateTab,
   onLogRecurring,
@@ -55,43 +64,54 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const isBudgetExceeded = remainingBudget <= 0;
   const netBalance = (currentMonthData?.income ?? 0) - (currentMonthData?.expense ?? 0);
 
+  // Common quick expenses for college students
+  const quickPresets = [
+    { label: 'Campus Canteen', amount: 60, icon: Utensils, cat: 'cat-food' },
+    { label: 'Tea / Coffee', amount: 40, icon: Coffee, cat: 'cat-food' },
+    { label: 'Print & Xerox', amount: 20, icon: Printer, cat: 'cat-academics' },
+    { label: 'Metro / Transit', amount: 50, icon: Bus, cat: 'cat-transport' },
+    { label: 'Study Supplies', amount: 350, icon: BookOpen, cat: 'cat-academics' },
+  ];
+
   return (
     <div className="space-y-6 pb-12 font-sans">
-      {/* 1. Student Daily Safe-to-Spend Instrument (The Signature Element) */}
-      <section className={`p-5 rounded-2xl border transition-all ${
-        isBudgetExceeded
-          ? 'bg-red-950/20 border-red-500/30 text-red-200'
-          : 'bg-slate-900/90 border-slate-800 text-slate-100'
-      }`}>
+      {/* 1. Signature Fintech Instrument: Student Daily Safe-to-Spend Velocity */}
+      <section
+        className={`p-5 rounded-2xl border transition-all ${
+          isBudgetExceeded
+            ? 'bg-rose-950/20 border-rose-500/30 text-rose-200'
+            : 'bg-slate-900/90 border-slate-800 text-slate-100'
+        }`}
+      >
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                Daily Safe-to-Spend Allowance
-              </span>
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-medium">
-                {daysLeft} days left in month
-              </span>
+          <div className="space-y-1.5">
+            {/* Unboxed metadata header */}
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <span className="font-semibold text-slate-300">Daily Safe-to-Spend Allowance</span>
+              <span aria-hidden="true" className="text-slate-600">·</span>
+              <span className="font-mono text-slate-300">{daysLeft} days remaining in month</span>
             </div>
 
-            <div className="flex items-baseline gap-2.5">
-              <span className={`text-3xl sm:text-4xl font-extrabold tracking-tight tabular-nums ${
-                isBudgetExceeded ? 'text-red-400' : 'text-teal-300'
-              }`}>
+            <div className="flex items-baseline gap-3">
+              <span
+                className={`text-3xl sm:text-4xl font-extrabold tracking-tight font-mono tabular-nums ${
+                  isBudgetExceeded ? 'text-rose-400' : 'text-teal-300'
+                }`}
+              >
                 {currency}{safeDailySpend.toLocaleString()}
               </span>
-              <span className="text-xs text-slate-400 font-medium">/ day safe velocity</span>
+              <span className="text-xs text-slate-400 font-medium">/ day velocity</span>
             </div>
 
             <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
               {isBudgetExceeded ? (
-                <span className="text-red-300 font-medium flex items-center gap-1.5">
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                  Budget exceeded by {currency}{Math.abs(remainingBudget).toLocaleString()}. Freeze non-essential outings until next allowance.
+                <span className="text-rose-300 font-medium flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  Budget limit exceeded by {currency}{Math.abs(remainingBudget).toLocaleString()}. Pause discretionary expenses until your next stipend or allowance.
                 </span>
               ) : (
                 <>
-                  Derived mathematically: <span className="text-slate-200 font-mono">{currency}{remainingBudget.toLocaleString()}</span> remaining budget ÷ <span className="text-slate-200 font-mono">{daysLeft} days</span>. Spending under this limit guarantees you finish the month on track.
+                  Mathematically grounded: <span className="text-slate-200 font-mono font-medium">{currency}{remainingBudget.toLocaleString()}</span> remaining budget ÷ <span className="text-slate-200 font-mono font-medium">{daysLeft} days</span>. Spending under this rate ensures you never run short before month end.
                 </>
               )}
             </p>
@@ -100,13 +120,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => onOpenAddTx('expense')}
-              className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-colors shadow"
+              className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm whitespace-nowrap shrink-0"
             >
               <Plus className="w-4 h-4" /> Log Expense
             </button>
             <button
               onClick={() => onOpenAddTx('income')}
-              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 font-semibold text-xs flex items-center gap-1.5 border border-slate-700 transition-colors"
+              className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-750 text-emerald-400 font-semibold text-xs flex items-center gap-1.5 border border-slate-700 transition-colors whitespace-nowrap shrink-0"
             >
               <ArrowDownLeft className="w-4 h-4" /> Add Income
             </button>
@@ -114,53 +134,91 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </section>
 
-      {/* 2. KPIs as Type, Not Tiles (Taste-Skill Rule #2: No icons in coloured circles, clean typography) */}
+      {/* Quick Action Presets (College Everyday Micro-Expenses) */}
+      <section className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <span className="text-xs font-medium text-slate-400 shrink-0">
+          Quick-log preset:
+        </span>
+        <div className="flex items-center gap-2 flex-wrap">
+          {quickPresets.map((preset, idx) => {
+            const Icon = preset.icon;
+            return (
+              <button
+                key={idx}
+                onClick={() => onOpenAddTx('expense')}
+                className="px-2.5 py-1.5 rounded-lg bg-slate-800/60 hover:bg-slate-800 text-slate-300 border border-slate-700/60 text-xs flex items-center gap-1.5 transition-colors group"
+                title={`Quick log ${preset.label} (${currency}${preset.amount})`}
+              >
+                <Icon className="w-3.5 h-3.5 text-teal-400" />
+                <span>{preset.label}</span>
+                <span className="font-mono text-slate-400 group-hover:text-teal-300 tabular-nums">
+                  {currency}{preset.amount}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* 2. Core Financial Indicators (Clean Typography, Tabular Figures) */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-        {/* Net Savings Balance */}
+        {/* Net Month Balance */}
         <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800/80 space-y-1">
-          <div className="text-[11px] text-slate-400 font-medium">Net Month Balance</div>
-          <div className={`text-2xl font-bold tracking-tight tabular-nums ${
-            netBalance >= 0 ? 'text-white' : 'text-red-400'
-          }`}>
+          <div className="text-xs text-slate-400 font-medium">Net Month Balance</div>
+          <div
+            className={`text-2xl font-bold font-mono tracking-tight tabular-nums ${
+              netBalance >= 0 ? 'text-white' : 'text-rose-400'
+            }`}
+          >
             {currency}{netBalance.toLocaleString()}
           </div>
           <div className="text-[11px] text-slate-500 flex items-center gap-1">
             <span>Savings rate:</span>
-            <span className="text-emerald-400 font-semibold tabular-nums">
-              {currentMonthData?.income ? Math.max(0, Math.round(((currentMonthData.income - currentMonthData.expense) / currentMonthData.income) * 100)) : 0}%
+            <span className="text-emerald-400 font-mono font-semibold tabular-nums">
+              {currentMonthData?.income
+                ? Math.max(
+                    0,
+                    Math.round(
+                      ((currentMonthData.income - currentMonthData.expense) / currentMonthData.income) * 100
+                    )
+                  )
+                : 0}
+              %
             </span>
           </div>
         </div>
 
         {/* Total Month Income */}
         <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800/80 space-y-1">
-          <div className="text-[11px] text-slate-400 font-medium">Allowance &amp; Income</div>
-          <div className="text-2xl font-bold text-emerald-400 tracking-tight tabular-nums">
+          <div className="text-xs text-slate-400 font-medium">Allowance &amp; Income</div>
+          <div className="text-2xl font-bold font-mono text-emerald-400 tracking-tight tabular-nums">
             +{currency}{(currentMonthData?.income ?? 0).toLocaleString()}
           </div>
-          <div className="text-[11px] text-slate-500">Family allowance, stipends, tutoring</div>
+          <div className="text-[11px] text-slate-500 truncate">Family allowance, stipends, tutoring</div>
         </div>
 
-        {/* Total Month Expenses (Quiet Polarity: ordinary expenses in clean text ink, not aggressive red) */}
+        {/* Total Month Expenses */}
         <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800/80 space-y-1">
-          <div className="text-[11px] text-slate-400 font-medium">Recorded Expenses</div>
-          <div className="text-2xl font-bold text-slate-100 tracking-tight tabular-nums">
+          <div className="text-xs text-slate-400 font-medium">Recorded Expenses</div>
+          <div className="text-2xl font-bold font-mono text-slate-100 tracking-tight tabular-nums">
             {currency}{(currentMonthData?.expense ?? 0).toLocaleString()}
           </div>
-          <div className="text-[11px] text-slate-500">
+          <div className="text-[11px] text-slate-500 font-mono">
             Essential: {currency}{(currentMonthData?.essentialExpense ?? 0).toLocaleString()}
           </div>
         </div>
 
         {/* Remaining Budget */}
         <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800/80 space-y-1">
-          <div className="text-[11px] text-slate-400 font-medium">Monthly Budget Remaining</div>
-          <div className={`text-2xl font-bold tracking-tight tabular-nums ${
-            isBudgetExceeded ? 'text-red-400' : 'text-teal-300'
-          }`}>
+          <div className="text-xs text-slate-400 font-medium">Monthly Budget Remaining</div>
+          <div
+            className={`text-2xl font-bold font-mono tracking-tight tabular-nums ${
+              isBudgetExceeded ? 'text-rose-400' : 'text-teal-300'
+            }`}
+          >
             {currency}{remainingBudget.toLocaleString()}
           </div>
-          <div className="text-[11px] text-slate-500">
+          <div className="text-[11px] text-slate-500 font-mono">
             of {currency}{(currentMonthData?.budget ?? 15000).toLocaleString()} allowance limit
           </div>
         </div>
@@ -171,14 +229,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <section className="p-4 rounded-xl bg-slate-900/50 border border-slate-800/80 space-y-2">
           <div className="flex items-center justify-between text-xs">
             <span className="font-semibold text-slate-300">Monthly Budget Adherence</span>
-            <span className={`font-mono font-bold ${
-              budgets.overall.usage > 100
-                ? 'text-red-400'
-                : budgets.overall.usage > 80
-                ? 'text-amber-400'
-                : 'text-emerald-400'
-            }`}>
-              {budgets.overall.usage}% utilized ({currency}{budgets.overall.spent.toLocaleString()} / {currency}{budgets.overall.limit.toLocaleString()})
+            <span
+              className={`font-mono font-bold tabular-nums ${
+                budgets.overall.usage > 100
+                  ? 'text-rose-400'
+                  : budgets.overall.usage > 80
+                  ? 'text-amber-400'
+                  : 'text-emerald-400'
+              }`}
+            >
+              {budgets.overall.usage}% utilized ({currency}{budgets.overall.spent.toLocaleString()} / {currency}
+              {budgets.overall.limit.toLocaleString()})
             </span>
           </div>
           <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden flex">
@@ -203,7 +264,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-sm font-bold text-white">Monthly Cashflow Trend</h2>
-              <p className="text-xs text-slate-400">Income vs. Outgoings over 6 months</p>
+              <p className="text-xs text-slate-400">Income vs. Expenses across recorded months</p>
             </div>
             <div className="flex items-center gap-4 text-xs">
               <span className="flex items-center gap-1.5 text-slate-300">
@@ -251,7 +312,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        {/* Category Breakdown (Taste-Skill: Pale tiles with dark ink of the same hue) */}
+        {/* Category Breakdown (Clean typography, hairline progress bars) */}
         <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800/80 space-y-4 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
@@ -265,7 +326,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
             <p className="text-xs text-slate-400">Current month outgoings</p>
 
-            <div className="mt-4 space-y-2.5">
+            <div className="mt-4 space-y-3">
               {analytics?.categoryBreakdown && analytics.categoryBreakdown.length > 0 ? (
                 analytics.categoryBreakdown.slice(0, 5).map((cat, idx) => {
                   const total = currentMonthData?.expense || 1;
@@ -295,7 +356,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           </div>
 
-          <div className="pt-3 border-t border-slate-800 text-xs text-slate-400 flex items-center justify-between">
+          <div className="pt-3 border-t border-slate-800 text-xs text-slate-400 flex items-center justify-between font-mono">
             <span>Essential: {currency}{(currentMonthData?.essentialExpense ?? 0).toLocaleString()}</span>
             <span>Discretionary: {currency}{(currentMonthData?.discretionaryExpense ?? 0).toLocaleString()}</span>
           </div>
@@ -309,7 +370,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-sm font-bold text-white">Recent Transactions</h2>
-              <p className="text-xs text-slate-400">Latest activity on your account</p>
+              <p className="text-xs text-slate-400">Latest recorded ledger entries</p>
             </div>
             <button
               onClick={() => onNavigateTab('transactions')}
@@ -328,30 +389,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   className="py-3 flex items-center justify-between hover:bg-slate-800/30 px-2 rounded-lg cursor-pointer transition-colors group"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400 text-xs font-semibold shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400 text-xs font-semibold shrink-0 font-mono">
                       {tx.kind === 'income' ? '+' : '–'}
                     </div>
                     <div>
                       <div className="text-xs font-semibold text-slate-200 group-hover:text-white transition-colors">
                         {tx.description || tx.categoryName}
                       </div>
-                      <div className="text-[11px] text-slate-400 flex items-center gap-2">
+                      {/* Quiet unboxed metadata */}
+                      <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
                         <span className="font-mono">{tx.date}</span>
-                        <span>•</span>
-                        <span>{tx.categoryName}</span>
+                        <span aria-hidden="true">·</span>
+                        <span className="text-slate-300">{tx.categoryName}</span>
                         {tx.merchant && (
                           <>
-                            <span>•</span>
-                            <span className="truncate max-w-[120px]">{tx.merchant}</span>
+                            <span aria-hidden="true">·</span>
+                            <span className="truncate max-w-[120px] text-slate-400">{tx.merchant}</span>
                           </>
                         )}
                       </div>
                     </div>
                   </div>
 
-                  <div className={`text-xs font-bold font-mono tabular-nums ${
-                    tx.kind === 'income' ? 'text-emerald-400' : 'text-slate-200'
-                  }`}>
+                  <div
+                    className={`text-xs font-bold font-mono tabular-nums ${
+                      tx.kind === 'income' ? 'text-emerald-400' : 'text-slate-200'
+                    }`}
+                  >
                     {tx.kind === 'income' ? '+' : '–'}{currency}{tx.amount.toLocaleString()}
                   </div>
                 </div>
@@ -369,8 +433,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           {/* Upcoming Bills */}
           <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800/80 space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                Upcoming Subscriptions
+              <h3 className="text-xs font-semibold text-slate-300">
+                Upcoming recurring bills
               </h3>
               <button
                 onClick={() => onNavigateTab('subscriptions')}
@@ -389,13 +453,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   >
                     <div>
                       <div className="font-semibold text-slate-200">{bill.title}</div>
-                      <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
+                      <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5 font-mono">
                         <Calendar className="w-3 h-3 text-slate-500" />
                         <span>Due {bill.nextDueDate}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-slate-200 tabular-nums">
+                      <span className="font-bold text-slate-200 font-mono tabular-nums">
                         {currency}{bill.amount.toLocaleString()}
                       </span>
                       <button
@@ -419,8 +483,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           {/* Active Savings Goals Card */}
           <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800/80 space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                Savings Goals
+              <h3 className="text-xs font-semibold text-slate-300">
+                Savings goals
               </h3>
               <button
                 onClick={() => onNavigateTab('budgets')}
@@ -438,12 +502,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-medium text-slate-300">{goal.title}</span>
                       <span className="font-mono text-slate-400 tabular-nums">
-                        {currency}{goal.currentAmount.toLocaleString()} / {currency}{goal.targetAmount.toLocaleString()} ({pct}%)
+                        {currency}{goal.currentAmount.toLocaleString()} / {currency}
+                        {goal.targetAmount.toLocaleString()} ({pct}%)
                       </span>
                     </div>
                     <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-gradient-to-r from-teal-400 to-emerald-400 rounded-full"
+                        className="h-full bg-teal-400 rounded-full"
                         style={{ width: `${pct}%` }}
                       />
                     </div>

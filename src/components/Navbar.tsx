@@ -6,7 +6,7 @@ import {
   LogOut,
   Menu,
   GraduationCap,
-  Sparkles,
+  Bot,
 } from 'lucide-react';
 import { User } from '../types.ts';
 
@@ -32,38 +32,42 @@ export const Navbar: React.FC<NavbarProps> = ({
   onCurrencyChange,
 }) => {
   return (
-    <header className="h-14 border-b border-slate-800 bg-slate-900 sticky top-0 z-30 px-4 md:px-6 flex items-center justify-between transition-colors">
-      <div className="flex items-center gap-3">
+    <header className="h-14 border-b border-slate-800 bg-slate-900/95 backdrop-blur-md sticky top-0 z-30 px-4 md:px-6 flex items-center justify-between gap-8 transition-colors select-none">
+      {/* Zone 1: Brand Wordmark (Single text element, no adjacent badges) */}
+      <div className="flex items-center gap-3 shrink-0">
         <button
           onClick={onToggleMobileMenu}
-          className="md:hidden p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
-          aria-label="Toggle Navigation"
+          className="md:hidden p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+          aria-label="Toggle Navigation Menu"
         >
           <Menu className="w-4 h-4" />
         </button>
 
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-teal-300">
+        <a href="#dashboard" className="flex items-center gap-2.5 group">
+          <div className="w-8 h-8 rounded-lg bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-teal-400 group-hover:border-teal-400/60 transition-colors">
             <GraduationCap className="w-4 h-4" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-white text-sm tracking-tight">Pennywise</span>
-              <span className="hidden sm:inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-semibold bg-teal-500/10 text-teal-300 border border-teal-500/20">
-                Student Finance
-              </span>
-            </div>
-          </div>
-        </div>
+          <span className="font-extrabold text-white text-base tracking-tight whitespace-nowrap">
+            Pennywise
+          </span>
+        </a>
       </div>
 
-      <div className="flex items-center gap-2">
+      {/* Zone 2: Contextual Navigation Info (Quiet unboxed student metadata) */}
+      <div className="hidden lg:flex items-center gap-2 text-xs text-slate-400 truncate">
+        <span className="text-slate-300 font-medium truncate">{user.collegeName || 'Student Campus'}</span>
+        <span aria-hidden="true" className="text-slate-600">·</span>
+        <span className="truncate">{user.degreeSemester || 'Degree Program'}</span>
+      </div>
+
+      {/* Zone 3: Actions (Currency, Theme, AI Advisor & Primary Action) */}
+      <div className="flex items-center gap-2.5 shrink-0">
         {/* Currency Selector */}
         <select
           value={currency}
           onChange={(e) => onCurrencyChange(e.target.value)}
-          className="bg-slate-950 border border-slate-800 text-xs text-slate-300 rounded-lg px-2 py-1.5 focus:outline-none focus:border-teal-500 font-mono"
-          title="Select Currency"
+          className="bg-slate-950 border border-slate-800 text-xs text-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-teal-500 font-mono transition-colors cursor-pointer"
+          title="Select active currency"
         >
           <option value="₹">₹ INR</option>
           <option value="$">$ USD</option>
@@ -73,40 +77,45 @@ export const Navbar: React.FC<NavbarProps> = ({
           <option value="A$">A$ AUD</option>
         </select>
 
-        {/* AI Assistant Button */}
+        {/* AI Financial Advisor Trigger */}
         <button
           onClick={onOpenAI}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-750 text-teal-300 border border-slate-700/80 rounded-lg text-xs font-medium transition-colors"
-          title="Ask Financial Advisor"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/80 hover:bg-slate-800 text-teal-300 border border-slate-700/80 rounded-lg text-xs font-medium transition-colors whitespace-nowrap shrink-0"
+          title="Consult AI Financial Advisor"
         >
-          <Sparkles className="w-3.5 h-3.5 text-teal-400" />
-          <span className="hidden sm:inline">Ask AI</span>
+          <Bot className="w-3.5 h-3.5 text-teal-400" />
+          <span className="hidden sm:inline">Ask Advisor</span>
         </button>
 
-        {/* Quick Add Button */}
+        {/* Primary Action Button */}
         <button
           onClick={() => onOpenAddTx('expense')}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold rounded-lg text-xs transition-colors shadow-sm"
+          className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg text-xs transition-colors shadow-sm whitespace-nowrap shrink-0"
         >
           <Plus className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Add Record</span>
-          <span className="sm:hidden">+</span>
+          <span>New Entry</span>
         </button>
 
         {/* Theme Toggle */}
         <button
           onClick={onToggleTheme}
           className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
-          title="Toggle Theme"
+          title="Toggle light / dark mode"
+          aria-label="Toggle theme"
         >
-          {user.theme === 'light' ? <Moon className="w-4 h-4 text-slate-300" /> : <Sun className="w-4 h-4 text-amber-400" />}
+          {user.theme === 'light' ? (
+            <Moon className="w-4 h-4 text-slate-300" />
+          ) : (
+            <Sun className="w-4 h-4 text-amber-300" />
+          )}
         </button>
 
         {/* Logout */}
         <button
           onClick={onLogout}
           className="p-1.5 text-slate-400 hover:text-red-400 rounded-lg hover:bg-slate-800 transition-colors"
-          title="Sign Out"
+          title="Sign out"
+          aria-label="Sign out"
         >
           <LogOut className="w-4 h-4" />
         </button>

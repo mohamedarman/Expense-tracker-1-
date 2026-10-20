@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { GraduationCap, ArrowRight, Sparkles, Lock, Mail, User as UserIcon, BookOpen } from 'lucide-react';
+import { GraduationCap, ArrowRight, Lock, Mail, User as UserIcon, BookOpen } from 'lucide-react';
 import { api } from '../api.ts';
 import { User } from '../types.ts';
 
@@ -73,22 +73,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
       <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-6 shadow-2xl relative my-8">
         {/* Brand Header */}
         <div className="text-center space-y-2">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 mx-auto flex items-center justify-center shadow-lg shadow-emerald-500/20">
-            <GraduationCap className="w-8 h-8 text-slate-950" />
+          <div className="w-12 h-12 rounded-xl bg-teal-500/15 border border-teal-500/30 mx-auto flex items-center justify-center text-teal-300">
+            <GraduationCap className="w-6 h-6" />
           </div>
-          <h1 className="text-2xl font-black text-white tracking-tight">Pennywise</h1>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Pennywise</h1>
           <p className="text-xs text-slate-400">
             Smart, student-friendly personal finance and allowance tracker
           </p>
         </div>
 
         {/* Demo Account Quick Access Card */}
-        <div className="p-3.5 rounded-2xl bg-gradient-to-r from-teal-500/10 via-emerald-500/10 to-indigo-500/10 border border-teal-500/30 space-y-2">
+        <div className="p-3.5 rounded-2xl bg-slate-800/50 border border-slate-700/60 space-y-2">
           <div className="flex items-center justify-between text-xs">
-            <span className="font-semibold text-teal-300 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-teal-400" /> Instant Demo Account
+            <span className="font-semibold text-teal-300">
+              Instant Demo Account
             </span>
-            <span className="text-[10px] text-slate-400">Pre-seeded with records</span>
+            <span className="text-[11px] text-slate-400 font-mono">Pre-seeded with records</span>
           </div>
           <p className="text-[11px] text-slate-300">
             Want to test immediately? Sign in with one click to view preloaded student expenses, hostel bills, and goals:
@@ -97,7 +97,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
             type="button"
             onClick={handleUseDemo}
             disabled={loading}
-            className="w-full py-2 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-slate-950 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all shadow shadow-teal-500/20"
+            className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
           >
             <span>Launch Pre-Loaded Demo (Alex Chen)</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -110,7 +110,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
             type="button"
             onClick={() => { setIsRegister(false); setError(null); }}
             className={`flex-1 py-2 rounded-lg font-semibold transition-colors ${
-              !isRegister ? 'bg-slate-800 text-white shadow' : 'text-slate-400 hover:text-white'
+              !isRegister ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'
             }`}
           >
             Sign In

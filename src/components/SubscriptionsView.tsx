@@ -8,7 +8,6 @@ import {
   Play,
   Trash2,
   CreditCard,
-  Sparkles,
   X,
 } from 'lucide-react';
 import { RecurringPayment, Category, User, PaymentMethod } from '../types.ts';
@@ -115,10 +114,10 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
       {/* Summary Box */}
       <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold">
-            Estimated Monthly Fixed Commitments
-          </span>
-          <div className="text-2xl font-black text-white mt-0.5">
+          <div className="text-xs text-slate-400 font-medium">
+            Estimated monthly fixed commitments
+          </div>
+          <div className="text-2xl font-bold text-white mt-0.5 tabular-nums">
             {currency}{Math.round(totalMonthlyCommitment).toLocaleString()} <span className="text-xs font-normal text-slate-400">/ month</span>
           </div>
         </div>
@@ -144,7 +143,7 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-white truncate">{rec.title}</span>
                   <div className="flex items-center gap-1">
-                    <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-slate-800 text-slate-300 capitalize">
+                    <span className="text-[11px] font-mono text-slate-400 capitalize">
                       {rec.frequency}
                     </span>
                     <button
@@ -157,17 +156,17 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
                 </div>
 
                 <div className="flex items-baseline justify-between">
-                  <div className={`text-xl font-bold font-mono ${
+                  <div className={`text-xl font-bold font-mono tabular-nums ${
                     rec.kind === 'income' ? 'text-emerald-400' : 'text-slate-100'
                   }`}>
                     {rec.kind === 'income' ? '+' : '-'}{currency}{rec.amount.toLocaleString()}
                   </div>
-                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${
+                  <span className={`text-[11px] font-mono font-semibold ${
                     daysUntil <= 3
-                      ? 'bg-rose-500/15 text-rose-300'
+                      ? 'text-rose-400'
                       : daysUntil <= 7
-                      ? 'bg-amber-500/15 text-amber-300'
-                      : 'bg-slate-800 text-slate-400'
+                      ? 'text-amber-400'
+                      : 'text-slate-400'
                   }`}>
                     {daysUntil <= 0 ? 'Due Today' : `Due in ${daysUntil}d`}
                   </span>

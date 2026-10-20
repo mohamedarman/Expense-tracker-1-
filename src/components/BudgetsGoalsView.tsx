@@ -5,7 +5,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   Calendar,
-  Sparkles,
   TrendingUp,
   Trash2,
   ArrowRight,
@@ -184,12 +183,12 @@ export const BudgetsGoalsView: React.FC<BudgetsGoalsViewProps> = ({
               <Target className="w-4 h-4 text-emerald-400" />
               <h2 className="text-sm font-bold text-white">Monthly Overall Budget</h2>
             </div>
-            <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+            <span className={`text-xs font-semibold font-mono ${
               overall?.isExceeded
-                ? 'bg-red-500/10 text-red-400 border border-red-500/30'
+                ? 'text-rose-400'
                 : overall?.isWarning
-                ? 'bg-amber-500/10 text-amber-300 border border-amber-500/30'
-                : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                ? 'text-amber-400'
+                : 'text-emerald-400'
             }`}>
               {overall?.isExceeded ? 'Exceeded' : overall?.isWarning ? 'Warning (>80%)' : 'On Track'}
             </span>
@@ -197,7 +196,7 @@ export const BudgetsGoalsView: React.FC<BudgetsGoalsViewProps> = ({
 
           <div className="flex items-baseline justify-between">
             <div>
-              <div className="text-2xl font-black text-white">
+              <div className="text-2xl font-black text-white font-mono tabular-nums">
                 {currency}{(overall?.spent ?? 0).toLocaleString()}
                 <span className="text-xs text-slate-400 font-normal ml-1">
                   / {currency}{(overall?.limit ?? 15000).toLocaleString()}
@@ -210,16 +209,16 @@ export const BudgetsGoalsView: React.FC<BudgetsGoalsViewProps> = ({
               </p>
             </div>
             <div className="text-right">
-              <span className="text-xl font-mono font-bold text-slate-200">
+              <span className="text-xl font-mono font-bold text-slate-200 tabular-nums">
                 {overall?.usage ?? 0}%
               </span>
             </div>
           </div>
 
-          <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
+          <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-500 ${
-                overall?.isExceeded ? 'bg-red-500' : overall?.isWarning ? 'bg-amber-400' : 'bg-emerald-500'
+                overall?.isExceeded ? 'bg-rose-500' : overall?.isWarning ? 'bg-amber-400' : 'bg-emerald-500'
               }`}
               style={{ width: `${Math.min(100, overall?.usage || 0)}%` }}
             />
@@ -233,8 +232,8 @@ export const BudgetsGoalsView: React.FC<BudgetsGoalsViewProps> = ({
               <Calendar className="w-4 h-4 text-teal-400" />
               <h2 className="text-sm font-bold text-white">Semester Academic Budget</h2>
             </div>
-            <span className="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-teal-300 border border-slate-700 font-medium">
-              {semesterDaysLeft} days left in term
+            <span className="text-xs text-slate-400 font-mono">
+              {semesterDaysLeft} days remaining
             </span>
           </div>
 
@@ -257,7 +256,7 @@ export const BudgetsGoalsView: React.FC<BudgetsGoalsViewProps> = ({
 
           <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-teal-500 to-indigo-500 rounded-full"
+              className="h-full bg-teal-500 rounded-full"
               style={{ width: '45%' }}
             />
           </div>
@@ -410,8 +409,8 @@ export const BudgetsGoalsView: React.FC<BudgetsGoalsViewProps> = ({
 
                   <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
                     <div
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        isDone ? 'bg-emerald-400' : 'bg-gradient-to-r from-teal-400 to-emerald-400'
+                      className={`h-full rounded-full transition-colors ${
+                        isDone ? 'bg-emerald-400' : 'bg-teal-400'
                       }`}
                       style={{ width: `${pct}%` }}
                     />

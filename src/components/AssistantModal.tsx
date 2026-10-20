@@ -1,13 +1,10 @@
 import React, { useState } from 'react';
 import {
-  Sparkles,
   Send,
   X,
   Bot,
   User as UserIcon,
-  HelpCircle,
   Calculator,
-  ShieldCheck,
 } from 'lucide-react';
 import { api } from '../api.ts';
 import { User } from '../types.ts';
@@ -81,19 +78,20 @@ export const AssistantModal: React.FC<AssistantModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full h-[600px] flex flex-col shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 font-sans">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full h-[600px] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-gradient-to-tr from-teal-500/20 to-emerald-500/20 border border-teal-500/30 text-teal-300">
-              <Sparkles className="w-5 h-5 text-teal-400" />
+            <div className="p-2 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-300">
+              <Bot className="w-5 h-5 text-teal-400" />
             </div>
             <div>
               <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
-                AI Financial Advisor
-                <span className="text-[10px] font-semibold px-2 py-0.2 rounded-full bg-teal-500/10 text-teal-300 border border-teal-500/20">
-                  Verifiable Math
+                Financial Advisor
+                <span className="text-slate-500">·</span>
+                <span className="text-[11px] font-mono text-teal-400 font-medium">
+                  Ledger Grounded
                 </span>
               </h3>
               <p className="text-[11px] text-slate-400">
@@ -114,7 +112,7 @@ export const AssistantModal: React.FC<AssistantModalProps> = ({
               className={`flex gap-2.5 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               {m.role === 'assistant' && (
-                <div className="w-7 h-7 rounded-lg bg-teal-500/20 border border-teal-500/30 flex items-center justify-center text-teal-300 shrink-0 mt-0.5">
+                <div className="w-7 h-7 rounded-lg bg-teal-500/15 border border-teal-500/25 flex items-center justify-center text-teal-300 shrink-0 mt-0.5">
                   <Bot className="w-4 h-4" />
                 </div>
               )}
@@ -127,7 +125,7 @@ export const AssistantModal: React.FC<AssistantModalProps> = ({
               >
                 <div className="whitespace-pre-line">{m.text}</div>
                 {m.calculation && (
-                  <div className="pt-2 border-t border-slate-700/60 text-[10px] text-teal-300 font-mono flex items-center gap-1.5">
+                  <div className="pt-2 border-t border-slate-700/60 text-[10px] text-teal-300 tabular-nums flex items-center gap-1.5">
                     <Calculator className="w-3 h-3 text-teal-400 shrink-0" />
                     <span>{m.calculation}</span>
                   </div>
@@ -143,11 +141,11 @@ export const AssistantModal: React.FC<AssistantModalProps> = ({
 
           {loading && (
             <div className="flex gap-2.5 justify-start">
-              <div className="w-7 h-7 rounded-lg bg-teal-500/20 border border-teal-500/30 flex items-center justify-center text-teal-300 shrink-0">
+              <div className="w-7 h-7 rounded-lg bg-teal-500/15 border border-teal-500/25 flex items-center justify-center text-teal-300 shrink-0">
                 <Bot className="w-4 h-4" />
               </div>
               <div className="bg-slate-800/80 border border-slate-700/60 rounded-2xl p-3 text-xs text-slate-400 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-ping" />
+                <span className="w-2 h-2 rounded-full bg-teal-400" />
                 <span>Auditing ledger and computing answers...</span>
               </div>
             </div>
@@ -187,7 +185,7 @@ export const AssistantModal: React.FC<AssistantModalProps> = ({
           <button
             type="submit"
             disabled={loading || !input.trim()}
-            className="p-2 bg-teal-500 hover:bg-teal-600 disabled:opacity-40 text-slate-950 font-bold rounded-xl transition-colors shadow"
+            className="p-2 bg-teal-500 hover:bg-teal-600 disabled:opacity-40 text-slate-950 font-bold rounded-xl transition-colors"
           >
             <Send className="w-4 h-4" />
           </button>

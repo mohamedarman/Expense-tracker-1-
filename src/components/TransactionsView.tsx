@@ -459,23 +459,19 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
                           <div className="text-[10px] text-slate-500 truncate">{tx.merchant}</div>
                         )}
                         {tx.tags && tx.tags.length > 0 && (
-                          <div className="flex gap-1 mt-1 flex-wrap">
+                          <div className="flex gap-1.5 mt-1 flex-wrap text-[10px] text-slate-500 font-mono">
                             {tx.tags.map((tag, i) => (
-                              <span key={i} className="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400">
-                                #{tag}
-                              </span>
+                              <span key={i}>#{tag}</span>
                             ))}
                           </div>
                         )}
                       </td>
-                      <td className="py-3 px-3 whitespace-nowrap">
-                        <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-800 border border-slate-700/60 text-slate-300">
-                          {tx.categoryName}
-                        </span>
+                      <td className="py-3 px-3 whitespace-nowrap text-slate-300 font-medium">
+                        {tx.categoryName}
                       </td>
                       <td className="py-3 px-3 whitespace-nowrap text-slate-400">
                         <div className="font-medium text-slate-300">{tx.account}</div>
-                        <div className="text-[10px] text-slate-500">{tx.paymentMethod}</div>
+                        <div className="text-[10px] text-slate-500 font-mono">{tx.paymentMethod}</div>
                       </td>
                       <td className="py-3 px-3 text-right font-mono font-bold whitespace-nowrap">
                         <span className={tx.kind === 'income' ? 'text-emerald-400' : 'text-slate-200'}>
