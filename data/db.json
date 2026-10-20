@@ -1,0 +1,522 @@
+{
+  "users": [
+    {
+      "id": "demo-student-id-001",
+      "name": "Alex Chen",
+      "email": "demo@student.edu",
+      "passwordHash": "d412a7b74ce0cf7c1a57b289b0aa54a2788d38cca8e31615371e209149b4d4498cc34e7f1609a1ca1918b2e3ab67644dfbd1e3e616bcb06360b6ef06bea1849c",
+      "salt": "90609f13509a21e72a6863529a4d5980",
+      "currency": "₹",
+      "theme": "dark",
+      "monthlyBudget": 15000,
+      "semesterBudget": 60000,
+      "semesterEndDate": "2026-12-15",
+      "collegeName": "National Institute of Technology",
+      "degreeSemester": "Semester 5 (B.Tech CS)",
+      "createdAt": "2026-10-20T10:00:33.117Z"
+    }
+  ],
+  "categories": [
+    {
+      "id": "cat-food",
+      "name": "Food & Mess",
+      "kind": "expense",
+      "color": "#10b981",
+      "icon": "Utensils",
+      "isEssential": true,
+      "userId": null
+    },
+    {
+      "id": "cat-hostel",
+      "name": "Hostel & Rent",
+      "kind": "expense",
+      "color": "#06b6d4",
+      "icon": "Home",
+      "isEssential": true,
+      "userId": null
+    },
+    {
+      "id": "cat-books",
+      "name": "Books & Academics",
+      "kind": "expense",
+      "color": "#3b82f6",
+      "icon": "BookOpen",
+      "isEssential": true,
+      "userId": null
+    },
+    {
+      "id": "cat-fees",
+      "name": "College Fees",
+      "kind": "expense",
+      "color": "#6366f1",
+      "icon": "GraduationCap",
+      "isEssential": true,
+      "userId": null
+    },
+    {
+      "id": "cat-transport",
+      "name": "Transport & Commute",
+      "kind": "expense",
+      "color": "#8b5cf6",
+      "icon": "Bus",
+      "isEssential": true,
+      "userId": null
+    },
+    {
+      "id": "cat-bills",
+      "name": "Bills & Mobile Recharge",
+      "kind": "expense",
+      "color": "#ec4899",
+      "icon": "Smartphone",
+      "isEssential": true,
+      "userId": null
+    },
+    {
+      "id": "cat-health",
+      "name": "Health & Pharmacy",
+      "kind": "expense",
+      "color": "#14b8a6",
+      "icon": "HeartPulse",
+      "isEssential": true,
+      "userId": null
+    },
+    {
+      "id": "cat-entertainment",
+      "name": "Entertainment & Outings",
+      "kind": "expense",
+      "color": "#f59e0b",
+      "icon": "Film",
+      "isEssential": false,
+      "userId": null
+    },
+    {
+      "id": "cat-shopping",
+      "name": "Shopping & Gear",
+      "kind": "expense",
+      "color": "#f97316",
+      "icon": "ShoppingBag",
+      "isEssential": false,
+      "userId": null
+    },
+    {
+      "id": "cat-personal",
+      "name": "Personal Care",
+      "kind": "expense",
+      "color": "#eab308",
+      "icon": "Sparkles",
+      "isEssential": false,
+      "userId": null
+    },
+    {
+      "id": "cat-other-exp",
+      "name": "Other Expenses",
+      "kind": "expense",
+      "color": "#64748b",
+      "icon": "MoreHorizontal",
+      "isEssential": false,
+      "userId": null
+    },
+    {
+      "id": "cat-allowance",
+      "name": "Allowance / Pocket Money",
+      "kind": "income",
+      "color": "#10b981",
+      "icon": "Wallet",
+      "isEssential": true,
+      "userId": null
+    },
+    {
+      "id": "cat-scholarship",
+      "name": "Scholarship / Grant",
+      "kind": "income",
+      "color": "#06b6d4",
+      "icon": "Award",
+      "isEssential": true,
+      "userId": null
+    },
+    {
+      "id": "cat-job",
+      "name": "Part-time Job / Internship",
+      "kind": "income",
+      "color": "#3b82f6",
+      "icon": "Briefcase",
+      "isEssential": true,
+      "userId": null
+    },
+    {
+      "id": "cat-freelance",
+      "name": "Freelance / Tutoring",
+      "kind": "income",
+      "color": "#8b5cf6",
+      "icon": "Laptop",
+      "isEssential": true,
+      "userId": null
+    },
+    {
+      "id": "cat-gift",
+      "name": "Gifts & Awards",
+      "kind": "income",
+      "color": "#f59e0b",
+      "icon": "Gift",
+      "isEssential": false,
+      "userId": null
+    },
+    {
+      "id": "cat-other-inc",
+      "name": "Other Income",
+      "kind": "income",
+      "color": "#64748b",
+      "icon": "ArrowDownLeft",
+      "isEssential": false,
+      "userId": null
+    }
+  ],
+  "transactions": [
+    {
+      "userId": "demo-student-id-001",
+      "amount": 15000,
+      "kind": "income",
+      "categoryId": "cat-allowance",
+      "categoryName": "Allowance / Pocket Money",
+      "description": "Monthly student allowance from parents",
+      "merchant": "Parent Bank Transfer",
+      "date": "2026-10-01",
+      "paymentMethod": "Net Banking",
+      "account": "Primary Bank",
+      "notes": "Monthly allowance received for rent & mess",
+      "tags": [
+        "allowance",
+        "family"
+      ],
+      "id": "tx-3c60ee18-bb3d-4819-baaf-3d704130d856",
+      "createdAt": "2026-10-20T10:00:33.118Z",
+      "updatedAt": "2026-10-20T10:00:33.118Z"
+    },
+    {
+      "userId": "demo-student-id-001",
+      "amount": 4500,
+      "kind": "income",
+      "categoryId": "cat-freelance",
+      "categoryName": "Freelance / Tutoring",
+      "description": "Web development stipend for college lab",
+      "merchant": "College Research Lab",
+      "date": "2026-10-05",
+      "paymentMethod": "UPI",
+      "account": "Primary Bank",
+      "notes": "Python assistant stipend",
+      "tags": [
+        "freelance",
+        "academic"
+      ],
+      "id": "tx-68ad7cbf-7e73-4eba-832b-bc07f2bed1ac",
+      "createdAt": "2026-10-20T10:00:33.118Z",
+      "updatedAt": "2026-10-20T10:00:33.118Z"
+    },
+    {
+      "userId": "demo-student-id-001",
+      "amount": 4500,
+      "kind": "expense",
+      "categoryId": "cat-hostel",
+      "categoryName": "Hostel & Rent",
+      "description": "Hostel shared room rent",
+      "merchant": "Hostel Warden Office",
+      "date": "2026-10-02",
+      "paymentMethod": "UPI",
+      "account": "Primary Bank",
+      "tags": [
+        "hostel",
+        "fixed"
+      ],
+      "id": "tx-74bee370-fd2a-4b63-ab37-2af1e3c92b97",
+      "createdAt": "2026-10-20T10:00:33.118Z",
+      "updatedAt": "2026-10-20T10:00:33.118Z"
+    },
+    {
+      "userId": "demo-student-id-001",
+      "amount": 1200,
+      "kind": "expense",
+      "categoryId": "cat-food",
+      "categoryName": "Food & Mess",
+      "description": "Campus mess weekly advance meal token",
+      "merchant": "Campus Canteen",
+      "date": "2026-10-03",
+      "paymentMethod": "UPI",
+      "account": "Primary Bank",
+      "tags": [
+        "mess",
+        "food"
+      ],
+      "id": "tx-46507978-71ad-4984-a529-520d65c2b04f",
+      "createdAt": "2026-10-20T10:00:33.118Z",
+      "updatedAt": "2026-10-20T10:00:33.118Z"
+    },
+    {
+      "userId": "demo-student-id-001",
+      "amount": 850,
+      "kind": "expense",
+      "categoryId": "cat-books",
+      "categoryName": "Books & Academics",
+      "description": "Algorithms textbook & notebook stationery",
+      "merchant": "University Bookstore",
+      "date": "2026-10-07",
+      "paymentMethod": "Card",
+      "account": "Primary Bank",
+      "tags": [
+        "books",
+        "study"
+      ],
+      "id": "tx-792d06a3-6e9e-4530-8d2f-272cabab3992",
+      "createdAt": "2026-10-20T10:00:33.118Z",
+      "updatedAt": "2026-10-20T10:00:33.118Z"
+    },
+    {
+      "userId": "demo-student-id-001",
+      "amount": 349,
+      "kind": "expense",
+      "categoryId": "cat-bills",
+      "categoryName": "Bills & Mobile Recharge",
+      "description": "5G unlimited student data recharge pack",
+      "merchant": "Jio Mobile",
+      "date": "2026-10-08",
+      "paymentMethod": "UPI",
+      "account": "Digital Wallet",
+      "tags": [
+        "mobile",
+        "bills"
+      ],
+      "id": "tx-772044c0-3fd9-46f1-bb56-2d091520d6d5",
+      "createdAt": "2026-10-20T10:00:33.118Z",
+      "updatedAt": "2026-10-20T10:00:33.118Z"
+    },
+    {
+      "userId": "demo-student-id-001",
+      "amount": 420,
+      "kind": "expense",
+      "categoryId": "cat-transport",
+      "categoryName": "Transport & Commute",
+      "description": "Metro smartcard monthly top-up",
+      "merchant": "City Metro",
+      "date": "2026-10-10",
+      "paymentMethod": "UPI",
+      "account": "Primary Bank",
+      "tags": [
+        "metro",
+        "travel"
+      ],
+      "id": "tx-1378c69e-44e8-467c-8e2e-3bc2458df35f",
+      "createdAt": "2026-10-20T10:00:33.118Z",
+      "updatedAt": "2026-10-20T10:00:33.118Z"
+    },
+    {
+      "userId": "demo-student-id-001",
+      "amount": 680,
+      "kind": "expense",
+      "categoryId": "cat-entertainment",
+      "categoryName": "Entertainment & Outings",
+      "description": "Weekend movie and snack with roommates",
+      "merchant": "PVR Cinemas",
+      "date": "2026-10-12",
+      "paymentMethod": "UPI",
+      "account": "Pocket Cash",
+      "tags": [
+        "weekend",
+        "friends"
+      ],
+      "id": "tx-4f308f26-5e2e-4083-9644-818f4f31961a",
+      "createdAt": "2026-10-20T10:00:33.118Z",
+      "updatedAt": "2026-10-20T10:00:33.118Z"
+    },
+    {
+      "userId": "demo-student-id-001",
+      "amount": 320,
+      "kind": "expense",
+      "categoryId": "cat-food",
+      "categoryName": "Food & Mess",
+      "description": "Late night library tea and sandwiches",
+      "merchant": "Night Canteen",
+      "date": "2026-10-14",
+      "paymentMethod": "UPI",
+      "account": "Pocket Cash",
+      "tags": [
+        "food",
+        "night"
+      ],
+      "id": "tx-e2402193-d01a-4ed3-8a95-9f34e994a7df",
+      "createdAt": "2026-10-20T10:00:33.118Z",
+      "updatedAt": "2026-10-20T10:00:33.118Z"
+    }
+  ],
+  "budgets": [
+    {
+      "id": "b-overall",
+      "userId": "demo-student-id-001",
+      "categoryId": null,
+      "period": "monthly",
+      "month": "2026-10",
+      "amount": 15000,
+      "warningThreshold": 80
+    },
+    {
+      "id": "b-food",
+      "userId": "demo-student-id-001",
+      "categoryId": "cat-food",
+      "period": "monthly",
+      "month": "2026-10",
+      "amount": 4000,
+      "warningThreshold": 80
+    },
+    {
+      "id": "b-hostel",
+      "userId": "demo-student-id-001",
+      "categoryId": "cat-hostel",
+      "period": "monthly",
+      "month": "2026-10",
+      "amount": 5000,
+      "warningThreshold": 90
+    },
+    {
+      "id": "b-entertainment",
+      "userId": "demo-student-id-001",
+      "categoryId": "cat-entertainment",
+      "period": "monthly",
+      "month": "2026-10",
+      "amount": 1500,
+      "warningThreshold": 75
+    }
+  ],
+  "savingsGoals": [
+    {
+      "id": "goal-laptop",
+      "userId": "demo-student-id-001",
+      "title": "MacBook Air for Coding",
+      "targetAmount": 85000,
+      "currentAmount": 38000,
+      "targetDate": "2027-03-31",
+      "category": "Electronics",
+      "icon": "Laptop",
+      "status": "in_progress",
+      "createdAt": "2026-10-20T10:00:33.118Z"
+    },
+    {
+      "id": "goal-emergency",
+      "userId": "demo-student-id-001",
+      "title": "Emergency Medical & Travel Fund",
+      "targetAmount": 10000,
+      "currentAmount": 6500,
+      "targetDate": "2026-12-31",
+      "category": "Emergency",
+      "icon": "Shield",
+      "status": "in_progress",
+      "createdAt": "2026-10-20T10:00:33.118Z"
+    },
+    {
+      "id": "goal-cert",
+      "userId": "demo-student-id-001",
+      "title": "AWS Certified Cloud Practitioner",
+      "targetAmount": 8000,
+      "currentAmount": 8000,
+      "targetDate": "2026-10-20",
+      "category": "Certification",
+      "icon": "Award",
+      "status": "completed",
+      "createdAt": "2026-10-20T10:00:33.118Z"
+    }
+  ],
+  "recurringPayments": [
+    {
+      "id": "rec-spotify",
+      "userId": "demo-student-id-001",
+      "title": "Spotify Student Premium",
+      "amount": 59,
+      "kind": "expense",
+      "categoryId": "cat-entertainment",
+      "frequency": "monthly",
+      "nextDueDate": "2026-10-25",
+      "paymentMethod": "Card",
+      "status": "active",
+      "autoLog": true,
+      "notes": "Student discount plan verified with college email"
+    },
+    {
+      "id": "rec-wifi",
+      "userId": "demo-student-id-001",
+      "title": "Hostel Floor Broadband Sharing",
+      "amount": 300,
+      "kind": "expense",
+      "categoryId": "cat-bills",
+      "frequency": "monthly",
+      "nextDueDate": "2026-10-28",
+      "paymentMethod": "UPI",
+      "status": "active",
+      "autoLog": false,
+      "notes": "Pay to Rahul (Room 304)"
+    },
+    {
+      "id": "rec-hostel",
+      "userId": "demo-student-id-001",
+      "title": "Monthly Hostel Room Fee",
+      "amount": 4500,
+      "kind": "expense",
+      "categoryId": "cat-hostel",
+      "frequency": "monthly",
+      "nextDueDate": "2026-11-02",
+      "paymentMethod": "UPI",
+      "status": "active",
+      "autoLog": false,
+      "notes": "Pay by 5th of each month"
+    }
+  ],
+  "splitExpenses": [
+    {
+      "id": "split-001",
+      "userId": "demo-student-id-001",
+      "title": "Room Groceries & Filter Water Cans",
+      "totalAmount": 1800,
+      "userShare": 600,
+      "date": "2026-10-06",
+      "paidBy": "Alex Chen",
+      "status": "pending",
+      "participants": [
+        {
+          "name": "Alex Chen (You)",
+          "amount": 600,
+          "settled": true
+        },
+        {
+          "name": "Rohan Sharma",
+          "amount": 600,
+          "settled": true
+        },
+        {
+          "name": "Karthik Rao",
+          "amount": 600,
+          "settled": false
+        }
+      ]
+    }
+  ],
+  "debts": [
+    {
+      "id": "debt-001",
+      "userId": "demo-student-id-001",
+      "personName": "Karthik Rao",
+      "type": "owes_you",
+      "amount": 600,
+      "description": "His share for Room Groceries",
+      "dueDate": "2026-10-22",
+      "status": "pending",
+      "createdAt": "2026-10-20T10:00:33.119Z"
+    },
+    {
+      "id": "debt-002",
+      "userId": "demo-student-id-001",
+      "personName": "Library Dept",
+      "type": "you_owe",
+      "amount": 50,
+      "description": "Late return fine for Data Structures book",
+      "dueDate": "2026-10-25",
+      "status": "pending",
+      "createdAt": "2026-10-20T10:00:33.119Z"
+    }
+  ]
+}

@@ -23,10 +23,9 @@ if not secret_key:
     secret_key = secrets.token_hex(32)
     app.logger.warning("Using a temporary development SECRET_KEY; sessions will reset on restart.")
 app.config["SECRET_KEY"] = secret_key
-app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
-    "DATABASE_URL",
-    "mysql+pymysql://expense_user:change_me@localhost/student_expense_tracker?charset=utf8mb4"
-)
+default_db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "student_expense.db")
+default_db_url = f"sqlite:///{default_db_path}"
+app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", default_db_url)
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
