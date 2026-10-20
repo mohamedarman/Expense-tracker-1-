@@ -122,15 +122,31 @@ export default function App() {
     }
   }, [user]);
 
+  const clearUserDataState = useCallback(() => {
+    setTransactions([]);
+    setCategories([]);
+    setBudgets(null);
+    setGoals([]);
+    setRecurring([]);
+    setSplits([]);
+    setDebts([]);
+    setAnalytics(null);
+    setInsights([]);
+  }, []);
+
   useEffect(() => {
     if (user) {
+      clearUserDataState();
       refreshAllData();
+    } else {
+      clearUserDataState();
     }
-  }, [user, refreshAllData]);
+  }, [user?.id, refreshAllData, clearUserDataState]);
 
   const handleLogout = () => {
     clearStoredToken();
     setUser(null);
+    clearUserDataState();
   };
 
   const handleToggleTheme = () => {

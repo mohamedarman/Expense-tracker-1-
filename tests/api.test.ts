@@ -247,3 +247,213 @@ describe('4. Financial Context & Deterministic Assistant', () => {
     assert.ok(answerCategory.includes('₹3,200'));
   });
 });
+
+describe('5. Multi-User End-to-End Account Isolation & Zero Leakage', () => {
+  test('guarantees complete data isolation between two independent accounts in ClientStore', async () => {
+    const { ClientStore } = await import('../src/clientStore.ts');
+    const store = new ClientStore();
+
+    // 1. Account A registers
+    const regA = store.register({
+      name: 'Alice Student',
+      email: 'alice@college.edu',
+      password: 'AlicePassword123!',
+      monthlyBudget: 15000,
+    });
+    assert.ok(regA.user.id, 'User A should receive ID');
+    assert.strictEqual(store.getCurrentUserId(), regA.user.id);
+
+    // Account A creates private financial records
+    const txA1 = store.createTransaction({
+      kind: 'income',
+      amount: 12000,
+      categoryId: 'cat-allowance',
+      categoryName: 'Allowance / Pocket Money',
+      description: 'Monthly Allowance',
+      date: '2026-10-01',
+    });
+    const txA2 = store.createTransaction({
+      kind: 'expense',
+      amount: 3500,
+      categoryId: 'cat-hostel',
+      categoryName: 'Hostel & Rent',
+      description: 'Hostel Rent Share',
+      date: '2026-10-02',
+    });
+    const bdgA = store.setBudget({
+      categoryId: 'cat-hostel',
+      amount: 4000,
+      month: '2026-10',
+    });
+    const goalA = store.createGoal({
+      title: 'Private Coding Laptop',
+      targetAmount: 60000,
+      currentAmount: 15000,
+    });
+    const debtA = store.createDebt({
+      personName: 'Rohan Sharma',
+      amount: 500,
+      type: 'owes_you',
+      description: 'Private lunch split',
+    });
+
+    // Verify User A data is present
+    const dataA = store.getTransactions();
+    assert.strictEqual(dataA.total, 2);
+    assert.strictEqual(dataA.summary.income, 12000);
+    assert.strictEqual(dataA.summary.expense, 3500);
+    assert.strictEqual(dataA.summary.balance, 8500);
+
+    // 2. Account A logs out
+    store.setCurrentUserId(null);
+    assert.strictEqual(store.getCurrentUser(), null);
+
+    // 3. Account B registers
+    const regB = store.register({
+      name: 'Bob Roommate',
+      email: 'bob@college.edu',
+      password: 'BobPassword123!',
+      monthlyBudget: 10000,
+    });
+    assert.ok(regB.user.id !== regA.user.id, 'User B must have distinct ID');
+    assert.strictEqual(store.getCurrentUserId(), regB.user.id);
+
+    // 4. CRITICAL: Account B MUST see ZERO records from Account A
+    const dataB = store.getTransactions();
+    assert.strictEqual(dataB.total, 0, 'Account B must have 0 transactions');
+    assert.strictEqual(dataB.items.length, 0);
+    assert.strictEqual(dataB.summary.income, 0, 'Account B income must be 0');
+    assert.strictEqual(dataB.summary.expense, 0, 'Account B expense must be 0');
+    assert.strictEqual(dataB.summary.balance, 0, 'Account B balance must be 0');
+
+    const budgetsB = store.getBudgets('2026-10');
+    assert.strictEqual(budgetsB.categoryBudgets.length, 0, 'Account B must have 0 category budgets');
+    assert.strictEqual(budgetsB.overall.spent, 0, 'Account B spent must be 0');
+
+    const goalsB = store.getGoals();
+    assert.strictEqual(goalsB.length, 0, 'Account B must have 0 savings goals');
+
+    const debtsB = store.getDebts();
+    assert.strictEqual(debtsB.length, 0, 'Account B must have 0 debts');
+
+    const analyticsB = store.getAnalytics();
+    assert.strictEqual(analyticsB.currentMonth.income, 0, 'Account B analytics income must be 0');
+    assert.strictEqual(analyticsB.currentMonth.expense, 0, 'Account B analytics expense must be 0');
+    assert.strictEqual(analyticsB.categoryBreakdown.length, 0, 'Account B category breakdown must be empty');
+
+    // 5. Account B cannot read, update, or delete Account A's records
+    assert.throws(() => {
+      store.updateTransaction(txA2.id, { amount: 1 });
+    }, /Transaction not found or access denied/);
+
+    assert.throws(() => {
+      store.deleteTransaction(txA2.id);
+    }, /Transaction not found or unauthorized/);
+
+    assert.throws(() => {
+      store.depositGoal(goalA.id, 500, false);
+    }, /Savings goal not found or unauthorized/);
+
+    // 6. Account B logs out and Account A signs back in
+    store.setCurrentUserId(null);
+    const loginA = store.login('alice@college.edu', 'AlicePassword123!');
+    assert.strictEqual(loginA.user.id, regA.user.id);
+
+    // Account A's data remains 100% intact
+    const restoredA = store.getTransactions();
+    assert.strictEqual(restoredA.total, 2);
+    assert.strictEqual(restoredA.summary.expense, 3500);
+    assert.strictEqual(store.getGoals().length, 1);
+    assert.strictEqual(store.getDebts().length, 1);
+  });
+
+  test('guarantees complete server-side database isolation between independent accounts in db engine', () => {
+    const user1: User = {
+      id: 'srv-user-isolation-1',
+      name: 'Server User One',
+      email: 'srv1@college.edu',
+      passwordHash: 'dummy1',
+      salt: 'salt1',
+      currency: '₹',
+      theme: 'dark',
+      monthlyBudget: 15000,
+      semesterBudget: 60000,
+      semesterEndDate: '2026-12-15',
+      createdAt: new Date().toISOString(),
+    };
+
+    const user2: User = {
+      id: 'srv-user-isolation-2',
+      name: 'Server User Two',
+      email: 'srv2@college.edu',
+      passwordHash: 'dummy2',
+      salt: 'salt2',
+      currency: '₹',
+      theme: 'dark',
+      monthlyBudget: 10000,
+      semesterBudget: 40000,
+      semesterEndDate: '2026-12-15',
+      createdAt: new Date().toISOString(),
+    };
+
+    db.createUser(user1);
+    db.createUser(user2);
+
+    const tx1 = db.createTransaction(user1.id, {
+      amount: 1500,
+      kind: 'expense',
+      categoryId: 'cat-food',
+      categoryName: 'Food & Mess',
+      description: 'Hostel Mess Bill',
+      merchant: 'Hostel Mess',
+      date: '2026-10-10',
+      paymentMethod: 'UPI',
+      account: 'Primary Bank',
+    });
+
+    const b1 = db.setBudget(user1.id, {
+      categoryId: 'cat-food',
+      amount: 5000,
+      period: 'monthly',
+      month: '2026-10',
+      warningThreshold: 80,
+    });
+
+    const g1 = db.createSavingsGoal(user1.id, {
+      title: 'Emergency Medical Vault',
+      targetAmount: 10000,
+      currentAmount: 2000,
+      targetDate: '2026-12-31',
+      category: 'Emergency',
+      icon: 'Shield',
+      status: 'in_progress',
+    });
+
+    const d1 = db.createDebt(user1.id, {
+      personName: 'Rohan',
+      type: 'owes_you',
+      amount: 400,
+      description: 'Lunch bill',
+      dueDate: '2026-10-25',
+      status: 'pending',
+    });
+
+    // User 2 queries must return EMPTY arrays
+    assert.strictEqual(db.getTransactions(user2.id).length, 0, 'User 2 must see 0 transactions');
+    assert.strictEqual(db.getBudgets(user2.id).length, 0, 'User 2 must see 0 budgets');
+    assert.strictEqual(db.getSavingsGoals(user2.id).length, 0, 'User 2 must see 0 goals');
+    assert.strictEqual(db.getDebts(user2.id).length, 0, 'User 2 must see 0 debts');
+
+    // User 2 cannot access or mutate User 1 records
+    assert.strictEqual(db.getTransactionById(user2.id, tx1.id), undefined);
+    assert.strictEqual(db.updateTransaction(user2.id, tx1.id, { amount: 5 }), null);
+    assert.strictEqual(db.deleteTransaction(user2.id, tx1.id), false);
+    assert.strictEqual(db.deleteBudget(user2.id, b1.id), false);
+    assert.strictEqual(db.deleteSavingsGoal(user2.id, g1.id), false);
+    assert.strictEqual(db.deleteDebt(user2.id, d1.id), false);
+
+    // Cleanup
+    db.deleteUser(user1.id);
+    db.deleteUser(user2.id);
+  });
+});

@@ -56,14 +56,18 @@ def test_registration_login_and_logout(client):
     with client.session_transaction() as session:
         assert session.get("user_id") is not None
     client.post("/logout", follow_redirects=True)
+    with client.session_transaction() as session:
+        assert session.get("user_id") is None
     response = client.post("/login", data={
         "email": "student@example.com", "password": "safe-password-123"
     }, follow_redirects=True)
     assert response.status_code == 200
+    with client.session_transaction() as session:
+        assert session.get("user_id") is not None
     assert (
-        b"You're signed in" in response.data
-        or b"You&#39;re signed in" in response.data
-        or b"signed in" in response.data.lower()
+        b"signed in" in response.data.lower()
+        or b"overview" in response.data.lower()
+        or b"workspace" in response.data.lower()
     )
 
 
@@ -115,3 +119,15 @@ def test_user_cannot_access_another_users_transaction(client):
     register(client, "second@example.com")
     response = client.get(f"/transactions/{transaction_id}/edit", follow_redirects=True)
     assert b"Transaction not found" in response.data
+
+
+def test_new_user_has_zero_records_and_clean_dashboard(client):
+    register(client, "brandnew@example.com")
+    response = client.get("/dashboard")
+    assert response.status_code == 200
+    assert b"0.00" in response.data
+    assert b"clean slate" in response.data.lower() or b"no spending data" in response.data.lower()
+    tx_page = client.get("/transactions")
+    assert tx_page.status_code == 200
+    assert b"No transactions found" in tx_page.data or b"Add your first transaction" in tx_page.data
+

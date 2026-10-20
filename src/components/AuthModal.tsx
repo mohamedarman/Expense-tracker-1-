@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { GraduationCap, ArrowRight, Lock, Mail, User as UserIcon, BookOpen } from 'lucide-react';
 import { api } from '../api.ts';
+import { clientStore } from '../clientStore.ts';
 import { User } from '../types.ts';
 
 interface AuthModalProps {
@@ -59,8 +60,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
     setError(null);
     setLoading(true);
     try {
-      const res = await api.login('demo@student.edu', 'StudentPass123!');
-      onSuccess(res.user);
+      try {
+        const res = await api.login('demo@student.edu', 'StudentPass123!');
+        onSuccess(res.user);
+      } catch {
+        const res = clientStore.seedDemoUser();
+        onSuccess(res.user);
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {

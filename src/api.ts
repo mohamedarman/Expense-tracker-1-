@@ -92,7 +92,10 @@ export const api = {
       });
       setStoredToken(res.token);
       return res;
-    } catch {
+    } catch (err: any) {
+      if (serverAvailable) {
+        throw err;
+      }
       const res = clientStore.register(data);
       setStoredToken(res.token);
       return res;
@@ -107,8 +110,11 @@ export const api = {
       });
       setStoredToken(res.token);
       return res;
-    } catch {
-      const res = clientStore.login(email);
+    } catch (err: any) {
+      if (serverAvailable) {
+        throw err;
+      }
+      const res = clientStore.login(email, password);
       setStoredToken(res.token);
       return res;
     }
@@ -117,10 +123,14 @@ export const api = {
   async getMe(): Promise<{ user: User }> {
     try {
       return await request<{ user: User }>('/api/auth/me');
-    } catch {
-      let user = clientStore.getCurrentUser();
+    } catch (err: any) {
+      if (serverAvailable) {
+        throw err;
+      }
+      const user = clientStore.getCurrentUser();
       if (!user) {
-        user = clientStore.login('alex.chen@university.edu').user;
+        clearStoredToken();
+        throw new Error('No authenticated user found. Please sign in.');
       }
       return { user };
     }

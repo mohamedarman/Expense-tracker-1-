@@ -5,11 +5,16 @@ Supports Gunicorn, uWSGI, Render, Railway, Heroku, and container runtimes.
 import sys
 import os
 
-EXPENSE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "expense_work")
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+EXPENSE_DIR = os.path.join(ROOT_DIR, "expense_work")
+
 if EXPENSE_DIR not in sys.path:
     sys.path.insert(0, EXPENSE_DIR)
 
-from app import app, db, seed_categories
+try:
+    from expense_work.app import app, db, seed_categories
+except ImportError:
+    from app import app, db, seed_categories  # noqa: F401
 
 with app.app_context():
     try:
