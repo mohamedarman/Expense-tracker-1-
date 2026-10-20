@@ -1,20 +1,15 @@
 import React from 'react';
 import {
-  TrendingUp,
-  TrendingDown,
   Wallet,
   AlertTriangle,
-  ArrowUpRight,
   ArrowDownLeft,
   Calendar,
-  Clock,
   Sparkles,
   CheckCircle2,
   Plus,
   Target,
-  Users,
   ChevronRight,
-  CreditCard,
+  TrendingUp,
 } from 'lucide-react';
 import { User, Transaction, BudgetResponse, RecurringPayment, SavingsGoal, AnalyticsResponse, FinancialInsight } from '../types.ts';
 
@@ -50,59 +45,62 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const currentMonthData = analytics?.currentMonth;
   const recentTransactions = transactions.slice(0, 6);
 
-  // Calculate upcoming recurring payments in the next 14 days
   const upcomingBills = recurring
     .filter((r) => r.status === 'active')
     .slice(0, 3);
 
   const safeDailySpend = currentMonthData?.safeDailySpend ?? 0;
   const daysLeft = currentMonthData?.daysLeftInMonth ?? 15;
-  const isBudgetExceeded = (currentMonthData?.remainingBudget ?? 0) <= 0;
+  const remainingBudget = currentMonthData?.remainingBudget ?? 0;
+  const isBudgetExceeded = remainingBudget <= 0;
+  const netBalance = (currentMonthData?.income ?? 0) - (currentMonthData?.expense ?? 0);
 
   return (
-    <div className="space-y-6 pb-12">
-      {/* Top Banner: Daily Safe-to-Spend Gauge */}
-      <div className={`p-4 md:p-5 rounded-2xl border transition-all ${
+    <div className="space-y-6 pb-12 font-sans">
+      {/* 1. Student Daily Safe-to-Spend Instrument (The Signature Element) */}
+      <section className={`p-5 rounded-2xl border transition-all ${
         isBudgetExceeded
-          ? 'bg-gradient-to-r from-red-950/40 via-red-900/20 to-slate-900/80 border-red-500/30'
-          : 'bg-gradient-to-r from-teal-950/40 via-slate-900/90 to-emerald-950/30 border-teal-500/30'
+          ? 'bg-red-950/20 border-red-500/30 text-red-200'
+          : 'bg-slate-900/90 border-slate-800 text-slate-100'
       }`}>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-start gap-3.5">
-            <div className={`p-2.5 rounded-xl mt-0.5 ${
-              isBudgetExceeded ? 'bg-red-500/20 text-red-400' : 'bg-teal-500/20 text-teal-300'
-            }`}>
-              {isBudgetExceeded ? <AlertTriangle className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                Daily Safe-to-Spend Allowance
+              </span>
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-medium">
+                {daysLeft} days left in month
+              </span>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs uppercase tracking-wider font-semibold text-slate-400">
-                  Student Daily Allowance Velocity
-                </span>
-                <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                  {daysLeft} days remaining
-                </span>
-              </div>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className={`text-2xl md:text-3xl font-extrabold tracking-tight ${
-                  isBudgetExceeded ? 'text-red-400' : 'text-teal-300'
-                }`}>
-                  {currency}{safeDailySpend.toLocaleString()}
-                </span>
-                <span className="text-xs text-slate-400 font-medium">/ day safe spending limit</span>
-              </div>
-              <p className="text-xs text-slate-400 mt-1">
-                {isBudgetExceeded
-                  ? `You have exceeded your monthly limit by ${currency}${Math.abs(currentMonthData?.remainingBudget || 0).toLocaleString()}. Avoid discretionary spending until the 1st.`
-                  : `Calculated from your remaining monthly budget of ${currency}${(currentMonthData?.remainingBudget ?? 0).toLocaleString()} divided by ${daysLeft} days left.`}
-              </p>
+
+            <div className="flex items-baseline gap-2.5">
+              <span className={`text-3xl sm:text-4xl font-extrabold tracking-tight tabular-nums ${
+                isBudgetExceeded ? 'text-red-400' : 'text-teal-300'
+              }`}>
+                {currency}{safeDailySpend.toLocaleString()}
+              </span>
+              <span className="text-xs text-slate-400 font-medium">/ day safe velocity</span>
             </div>
+
+            <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
+              {isBudgetExceeded ? (
+                <span className="text-red-300 font-medium flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  Budget exceeded by {currency}{Math.abs(remainingBudget).toLocaleString()}. Freeze non-essential outings until next allowance.
+                </span>
+              ) : (
+                <>
+                  Derived mathematically: <span className="text-slate-200 font-mono">{currency}{remainingBudget.toLocaleString()}</span> remaining budget ÷ <span className="text-slate-200 font-mono">{daysLeft} days</span>. Spending under this limit guarantees you finish the month on track.
+                </>
+              )}
+            </p>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => onOpenAddTx('expense')}
-              className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-semibold text-xs flex items-center gap-1.5 transition-colors shadow"
+              className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-colors shadow"
             >
               <Plus className="w-4 h-4" /> Log Expense
             </button>
@@ -114,47 +112,40 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </button>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Metrics Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 md:gap-4">
-        {/* Total Balance */}
-        <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800/80 space-y-2">
-          <div className="flex items-center justify-between text-xs text-slate-400 font-medium">
-            <span>Net Balance</span>
-            <Wallet className="w-4 h-4 text-emerald-400" />
-          </div>
-          <div className="text-xl md:text-2xl font-bold text-white tracking-tight">
-            {currency}{((currentMonthData?.income ?? 0) - (currentMonthData?.expense ?? 0)).toLocaleString()}
+      {/* 2. KPIs as Type, Not Tiles (Taste-Skill Rule #2: No icons in coloured circles, clean typography) */}
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+        {/* Net Savings Balance */}
+        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800/80 space-y-1">
+          <div className="text-[11px] text-slate-400 font-medium">Net Month Balance</div>
+          <div className={`text-2xl font-bold tracking-tight tabular-nums ${
+            netBalance >= 0 ? 'text-white' : 'text-red-400'
+          }`}>
+            {currency}{netBalance.toLocaleString()}
           </div>
           <div className="text-[11px] text-slate-500 flex items-center gap-1">
             <span>Savings rate:</span>
-            <span className="text-emerald-400 font-semibold">
+            <span className="text-emerald-400 font-semibold tabular-nums">
               {currentMonthData?.income ? Math.max(0, Math.round(((currentMonthData.income - currentMonthData.expense) / currentMonthData.income) * 100)) : 0}%
             </span>
           </div>
         </div>
 
-        {/* Total Income */}
-        <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800/80 space-y-2">
-          <div className="flex items-center justify-between text-xs text-slate-400 font-medium">
-            <span>Month Income</span>
-            <ArrowDownLeft className="w-4 h-4 text-emerald-400" />
-          </div>
-          <div className="text-xl md:text-2xl font-bold text-emerald-400 tracking-tight">
+        {/* Total Month Income */}
+        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800/80 space-y-1">
+          <div className="text-[11px] text-slate-400 font-medium">Allowance &amp; Income</div>
+          <div className="text-2xl font-bold text-emerald-400 tracking-tight tabular-nums">
             +{currency}{(currentMonthData?.income ?? 0).toLocaleString()}
           </div>
-          <div className="text-[11px] text-slate-500">Allowance, job &amp; scholarships</div>
+          <div className="text-[11px] text-slate-500">Family allowance, stipends, tutoring</div>
         </div>
 
-        {/* Total Expenses */}
-        <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800/80 space-y-2">
-          <div className="flex items-center justify-between text-xs text-slate-400 font-medium">
-            <span>Month Expenses</span>
-            <ArrowUpRight className="w-4 h-4 text-rose-400" />
-          </div>
-          <div className="text-xl md:text-2xl font-bold text-rose-400 tracking-tight">
-            -{currency}{(currentMonthData?.expense ?? 0).toLocaleString()}
+        {/* Total Month Expenses (Quiet Polarity: ordinary expenses in clean text ink, not aggressive red) */}
+        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800/80 space-y-1">
+          <div className="text-[11px] text-slate-400 font-medium">Recorded Expenses</div>
+          <div className="text-2xl font-bold text-slate-100 tracking-tight tabular-nums">
+            {currency}{(currentMonthData?.expense ?? 0).toLocaleString()}
           </div>
           <div className="text-[11px] text-slate-500">
             Essential: {currency}{(currentMonthData?.essentialExpense ?? 0).toLocaleString()}
@@ -162,34 +153,35 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         {/* Remaining Budget */}
-        <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800/80 space-y-2">
-          <div className="flex items-center justify-between text-xs text-slate-400 font-medium">
-            <span>Monthly Budget</span>
-            <Target className="w-4 h-4 text-teal-400" />
-          </div>
-          <div className={`text-xl md:text-2xl font-bold tracking-tight ${
-            isBudgetExceeded ? 'text-red-400' : 'text-white'
+        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800/80 space-y-1">
+          <div className="text-[11px] text-slate-400 font-medium">Monthly Budget Remaining</div>
+          <div className={`text-2xl font-bold tracking-tight tabular-nums ${
+            isBudgetExceeded ? 'text-red-400' : 'text-teal-300'
           }`}>
-            {currency}{(currentMonthData?.remainingBudget ?? 0).toLocaleString()}
+            {currency}{remainingBudget.toLocaleString()}
           </div>
           <div className="text-[11px] text-slate-500">
-            of {currency}{(currentMonthData?.budget ?? 0).toLocaleString()} limit
+            of {currency}{(currentMonthData?.budget ?? 15000).toLocaleString()} allowance limit
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Budget Progress Bar */}
+      {/* 3. Budget Utilization Bar */}
       {budgets && (
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800/80 space-y-2">
+        <section className="p-4 rounded-xl bg-slate-900/50 border border-slate-800/80 space-y-2">
           <div className="flex items-center justify-between text-xs">
-            <span className="font-semibold text-slate-300">Monthly Budget Utilization</span>
+            <span className="font-semibold text-slate-300">Monthly Budget Adherence</span>
             <span className={`font-mono font-bold ${
-              budgets.overall.usage > 90 ? 'text-rose-400' : budgets.overall.usage > 75 ? 'text-amber-400' : 'text-emerald-400'
+              budgets.overall.usage > 100
+                ? 'text-red-400'
+                : budgets.overall.usage > 80
+                ? 'text-amber-400'
+                : 'text-emerald-400'
             }`}>
               {budgets.overall.usage}% utilized ({currency}{budgets.overall.spent.toLocaleString()} / {currency}{budgets.overall.limit.toLocaleString()})
             </span>
           </div>
-          <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden flex">
+          <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden flex">
             <div
               className={`h-full rounded-full transition-all duration-500 ${
                 budgets.overall.usage > 100
@@ -201,49 +193,48 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               style={{ width: `${Math.min(100, budgets.overall.usage)}%` }}
             />
           </div>
-        </div>
+        </section>
       )}
 
-      {/* Main Grid: Trends & Breakdown */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* 6-Month Income vs Expenses Chart */}
+      {/* 4. Cashflow Trend & Category Distribution */}
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Cashflow Trend */}
         <div className="lg:col-span-2 p-5 rounded-2xl bg-slate-900/80 border border-slate-800/80 space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-sm font-bold text-white">Monthly Cashflow Trend</h2>
-              <p className="text-xs text-slate-400">Income vs. Expenses across past 6 months</p>
+              <p className="text-xs text-slate-400">Income vs. Outgoings over 6 months</p>
             </div>
-            <div className="flex items-center gap-3 text-xs">
-              <span className="flex items-center gap-1.5 text-slate-400">
+            <div className="flex items-center gap-4 text-xs">
+              <span className="flex items-center gap-1.5 text-slate-300">
                 <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" /> Income
               </span>
-              <span className="flex items-center gap-1.5 text-slate-400">
-                <span className="w-2.5 h-2.5 rounded-sm bg-rose-500" /> Expenses
+              <span className="flex items-center gap-1.5 text-slate-300">
+                <span className="w-2.5 h-2.5 rounded-sm bg-slate-400" /> Expenses
               </span>
             </div>
           </div>
 
-          {/* Bar Chart Visualization */}
-          <div className="h-48 flex items-end justify-between gap-3 pt-6 pb-2 px-2 border-b border-slate-800">
+          <div className="h-44 flex items-end justify-between gap-3 pt-6 pb-2 px-2 border-b border-slate-800">
             {analytics?.monthlyTrends && analytics.monthlyTrends.length > 0 ? (
               analytics.monthlyTrends.map((m, idx) => {
                 const maxVal = Math.max(
                   ...analytics.monthlyTrends.map((t) => Math.max(t.income, t.expense)),
                   1000
                 );
-                const incHeight = Math.max(8, (m.income / maxVal) * 140);
-                const expHeight = Math.max(8, (m.expense / maxVal) * 140);
+                const incHeight = Math.max(6, (m.income / maxVal) * 120);
+                const expHeight = Math.max(6, (m.expense / maxVal) * 120);
 
                 return (
                   <div key={idx} className="flex-1 flex flex-col items-center gap-2 group">
-                    <div className="w-full flex items-end justify-center gap-1 h-36">
+                    <div className="w-full flex items-end justify-center gap-1 h-32">
                       <div
-                        className="w-1/2 max-w-[18px] bg-emerald-500/80 hover:bg-emerald-400 rounded-t transition-all relative"
+                        className="w-1/2 max-w-[16px] bg-emerald-500/80 hover:bg-emerald-400 rounded-t transition-all relative"
                         style={{ height: `${incHeight}px` }}
                         title={`${m.label} Income: ${currency}${m.income}`}
                       />
                       <div
-                        className="w-1/2 max-w-[18px] bg-rose-500/80 hover:bg-rose-400 rounded-t transition-all relative"
+                        className="w-1/2 max-w-[16px] bg-slate-400/80 hover:bg-slate-300 rounded-t transition-all relative"
                         style={{ height: `${expHeight}px` }}
                         title={`${m.label} Expense: ${currency}${m.expense}`}
                       />
@@ -260,7 +251,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        {/* Category Breakdown */}
+        {/* Category Breakdown (Taste-Skill: Pale tiles with dark ink of the same hue) */}
         <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800/80 space-y-4 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
@@ -272,7 +263,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 View all
               </button>
             </div>
-            <p className="text-xs text-slate-400">Current month outflows</p>
+            <p className="text-xs text-slate-400">Current month outgoings</p>
 
             <div className="mt-4 space-y-2.5">
               {analytics?.categoryBreakdown && analytics.categoryBreakdown.length > 0 ? (
@@ -283,13 +274,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     <div key={idx} className="space-y-1">
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-slate-300 font-medium truncate">{cat.name}</span>
-                        <span className="text-slate-400 font-mono">
+                        <span className="text-slate-400 font-mono tabular-nums">
                           {currency}{cat.amount.toLocaleString()} ({pct}%)
                         </span>
                       </div>
                       <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
                         <div
-                          className="h-full rounded-full"
+                          className="h-full rounded-full transition-all duration-300"
                           style={{ width: `${pct}%`, backgroundColor: cat.color }}
                         />
                       </div>
@@ -309,10 +300,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span>Discretionary: {currency}{(currentMonthData?.discretionaryExpense ?? 0).toLocaleString()}</span>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Bottom Grid: Recent Transactions & Upcoming Bills */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* 5. Recent Activity Ledger & Upcoming Fixed Dues */}
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Transactions */}
         <div className="lg:col-span-2 p-5 rounded-2xl bg-slate-900/80 border border-slate-800/80 space-y-4">
           <div className="flex items-center justify-between">
@@ -337,19 +328,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   className="py-3 flex items-center justify-between hover:bg-slate-800/30 px-2 rounded-lg cursor-pointer transition-colors group"
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-xl text-xs font-bold ${
-                      tx.kind === 'income' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'
-                    }`}>
-                      {tx.kind === 'income' ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
+                    <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400 text-xs font-semibold shrink-0">
+                      {tx.kind === 'income' ? '+' : '–'}
                     </div>
                     <div>
                       <div className="text-xs font-semibold text-slate-200 group-hover:text-white transition-colors">
                         {tx.description || tx.categoryName}
                       </div>
                       <div className="text-[11px] text-slate-400 flex items-center gap-2">
-                        <span>{tx.date}</span>
+                        <span className="font-mono">{tx.date}</span>
                         <span>•</span>
-                        <span className="font-mono">{tx.paymentMethod}</span>
+                        <span>{tx.categoryName}</span>
                         {tx.merchant && (
                           <>
                             <span>•</span>
@@ -360,10 +349,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     </div>
                   </div>
 
-                  <div className={`text-xs font-bold font-mono ${
+                  <div className={`text-xs font-bold font-mono tabular-nums ${
                     tx.kind === 'income' ? 'text-emerald-400' : 'text-slate-200'
                   }`}>
-                    {tx.kind === 'income' ? '+' : '-'}{currency}{tx.amount.toLocaleString()}
+                    {tx.kind === 'income' ? '+' : '–'}{currency}{tx.amount.toLocaleString()}
                   </div>
                 </div>
               ))
@@ -385,7 +374,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </h3>
               <button
                 onClick={() => onNavigateTab('subscriptions')}
-                className="text-[11px] text-teal-400 hover:text-teal-300"
+                className="text-[11px] text-teal-400 hover:text-teal-300 font-medium"
               >
                 Manage
               </button>
@@ -396,7 +385,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 upcomingBills.map((bill) => (
                   <div
                     key={bill.id}
-                    className="p-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 flex items-center justify-between text-xs"
+                    className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/40 flex items-center justify-between text-xs"
                   >
                     <div>
                       <div className="font-semibold text-slate-200">{bill.title}</div>
@@ -406,12 +395,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-slate-200">
+                      <span className="font-mono font-bold text-slate-200 tabular-nums">
                         {currency}{bill.amount.toLocaleString()}
                       </span>
                       <button
                         onClick={() => onLogRecurring(bill.id)}
-                        className="px-2 py-1 bg-teal-500/15 hover:bg-teal-500/25 text-teal-300 border border-teal-500/30 rounded text-[10px] font-semibold transition-colors"
+                        className="px-2.5 py-1 bg-teal-500/15 hover:bg-teal-500/25 text-teal-300 border border-teal-500/30 rounded text-[10px] font-semibold transition-colors"
                         title="Mark as paid and record transaction"
                       >
                         Pay
@@ -435,7 +424,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </h3>
               <button
                 onClick={() => onNavigateTab('budgets')}
-                className="text-[11px] text-teal-400 hover:text-teal-300"
+                className="text-[11px] text-teal-400 hover:text-teal-300 font-medium"
               >
                 Goals
               </button>
@@ -448,7 +437,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <div key={goal.id} className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-medium text-slate-300">{goal.title}</span>
-                      <span className="font-mono text-slate-400">
+                      <span className="font-mono text-slate-400 tabular-nums">
                         {currency}{goal.currentAmount.toLocaleString()} / {currency}{goal.targetAmount.toLocaleString()} ({pct}%)
                       </span>
                     </div>
@@ -464,7 +453,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 };
