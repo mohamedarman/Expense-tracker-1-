@@ -15,6 +15,21 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // If hosted on GitHub Pages with root branch deployment (unbundled source), route to compiled /docs/
+      if (
+        window.location.hostname.endsWith('github.io') &&
+        !window.location.pathname.includes('/docs/') &&
+        !window.location.pathname.includes('/dist/')
+      ) {
+        var rawScript = document.querySelector('script[src*="/src/main.tsx"]');
+        if (rawScript) {
+          var target = window.location.pathname.replace(/\/index\.html$/, '');
+          if (!target.endsWith('/')) target += '/';
+          window.location.replace(target + 'docs/');
+        }
+      }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

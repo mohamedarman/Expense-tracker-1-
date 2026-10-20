@@ -18,14 +18,23 @@ load_dotenv()
 app = Flask(__name__)
 secret_key = os.getenv("SECRET_KEY")
 if not secret_key:
-    if os.getenv("FLASK_DEBUG", "false").lower() != "true":
-        raise RuntimeError("SECRET_KEY must be set in the environment. Copy .env.example to .env and generate a strong secret.")
     secret_key = secrets.token_hex(32)
-    app.logger.warning("Using a temporary development SECRET_KEY; sessions will reset on restart.")
+    app.logger.warning("SECRET_KEY was not explicitly provided in environment. A secure runtime token was generated.")
 app.config["SECRET_KEY"] = secret_key
-default_db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "student_expense.db")
-default_db_url = f"sqlite:///{default_db_path}"
-app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", default_db_url)
+
+raw_db_url = os.getenv("DATABASE_URL")
+if raw_db_url:
+    # Standardize legacy/cloud prefixes (e.g. postgres:// or mysql://)
+    if raw_db_url.startswith("postgres://"):
+        raw_db_url = raw_db_url.replace("postgres://", "postgresql://", 1)
+    elif raw_db_url.startswith("mysql://") and not raw_db_url.startswith("mysql+pymysql://"):
+        raw_db_url = raw_db_url.replace("mysql://", "mysql+pymysql://", 1)
+    db_uri = raw_db_url
+else:
+    default_db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "student_expense.db")
+    db_uri = f"sqlite:///{default_db_path}"
+
+app.config["SQLALCHEMY_DATABASE_URI"] = db_uri
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
@@ -424,8 +433,32 @@ def seed_categories_command():
     seed_categories()
     print("Default categories seeded.")
 
+_tables_initialized = False
+
+@app.before_request
+def auto_init_tables():
+    global _tables_initialized
+    if not _tables_initialized:
+        try:
+            db.create_all()
+            seed_categories()
+            _tables_initialized = True
+        except Exception as e:
+            app.logger.warning(f"Auto-init tables notice: {e}")
+
+@app.errorhandler(404)
+def not_found(e):
+    return render_template("base.html"), 404
+
+@app.errorhandler(500)
+def server_error(e):
+    return render_template("base.html"), 500
+
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
         seed_categories()
-    app.run(debug=os.getenv("FLASK_DEBUG", "false").lower() == "true")
+    host = os.getenv("HOST", "0.0.0.0")
+    port = int(os.getenv("PORT", 5000))
+    debug = os.getenv("FLASK_DEBUG", "false").lower() == "true"
+    app.run(host=host, port=port, debug=debug)

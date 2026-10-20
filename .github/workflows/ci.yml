@@ -1,19 +1,45 @@
-name: CI Pipeline
+name: CI & GitHub Pages Deployment
 
 on:
   push:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: 'pages'
+  cancel-in-progress: false
 
 jobs:
   test_and_build:
-    name: Lint, Test, and Build
+    name: Lint, Test, and Build (Full-Stack Python Flask & React)
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Python syntax check
+        run: python -m compileall -q app.py wsgi.py expense_work
+
+      - name: Run Flask unit tests
+        run: |
+          pip install -r requirements.txt pytest
+          pytest -q expense_work/tests
+        env:
+          SECRET_KEY: test-ci-secret-key-long-enough-32char
+          FLASK_DEBUG: "false"
 
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
@@ -36,3 +62,29 @@ jobs:
 
       - name: Build Application Bundle
         run: npm run build
+
+      - name: Deploy to gh-pages branch
+        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && github.event_name == 'push'
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+
+      - name: Upload Pages Artifact
+        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && github.event_name == 'push'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './dist'
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: test_and_build
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

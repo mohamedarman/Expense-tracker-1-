@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx server.ts",
     "start": "tsx server.ts",
-    "build": "vite build",
+    "build": "vite build && node -e \"const fs = require('fs'); fs.rmSync('docs', {recursive: true, force: true}); fs.cpSync('dist', 'docs', {recursive: true});\"",
     "preview": "vite preview",
     "test": "tsx --test",
     "clean": "rm -rf dist server.js",
