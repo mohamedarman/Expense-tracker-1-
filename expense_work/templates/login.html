@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Welcome back{% endblock %}
+{% block auth_content %}
+<div class="auth-heading"><div class="eyebrow">WELCOME BACK</div><h2>Good to see you.</h2><p>Sign in to pick up where you left off.</p></div>
+<form method="post" class="form-stack">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label>Email address<input type="email" name="email" placeholder="you@example.com" autocomplete="email" required maxlength="150"></label>
+  <label>Password<input type="password" name="password" placeholder="Enter your password" autocomplete="current-password" required></label>
+  <button class="btn btn-primary btn-full" type="submit">Sign in <span>→</span></button>
+</form>
+<p class="auth-switch">New to Pennywise? <a href="{{ url_for('register') }}">Create an account</a></p>
+<div class="privacy-note"><span>⌑</span> Your financial data stays private to your account.</div>
+{% endblock %}

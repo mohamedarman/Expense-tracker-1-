@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Overview{% endblock %}
+{% block breadcrumb %}Overview{% endblock %}
+{% block content %}
+<div class="page-heading heading-row"><div><div class="eyebrow">YOUR FINANCIAL SNAPSHOT</div><h1>Good {{ "morning" if current_hour < 12 else ("afternoon" if current_hour < 17 else "evening") }}, {{ current_user.name.split()[0] }} <span class="wave">✳</span></h1><p>Here's what's happening with your money this month.</p></div><a class="btn btn-primary" href="{{ url_for('transaction_form') }}">＋ Add transaction</a></div>
+<div class="stat-grid">
+  <article class="stat-card stat-dark"><div class="stat-top"><span>Monthly expenses</span><span class="stat-icon">↘</span></div><div class="stat-value">₹{{ "{:,.2f}".format(totals.expense) }}</div><div class="stat-foot"><span class="dot dot-coral"></span> Total spent this month</div><div class="card-decoration"></div></article>
+  <article class="stat-card"><div class="stat-top"><span>Total income</span><span class="stat-icon icon-green">↗</span></div><div class="stat-value">₹{{ "{:,.2f}".format(totals.income) }}</div><div class="stat-foot"><span class="dot dot-green"></span> Money received this month</div></article>
+  <article class="stat-card"><div class="stat-top"><span>Available balance</span><span class="stat-icon icon-purple">◈</span></div><div class="stat-value">₹{{ "{:,.2f}".format(totals.income - totals.expense) }}</div><div class="stat-foot"><span class="dot dot-purple"></span> Income minus expenses</div></article>
+  <article class="stat-card"><div class="stat-top"><span>Budget remaining</span><span class="stat-icon icon-amber">◎</span></div><div class="stat-value">{% if budget %}₹{{ "{:,.2f}".format(remaining) }}{% else %}—{% endif %}</div><div class="stat-foot">{% if budget %}<span class="dot {{ 'dot-coral' if remaining < 0 else 'dot-green' }}"></span> {{ usage }}% of monthly budget used{% else %}<a href="{{ url_for('budgets') }}">Set a monthly budget →</a>{% endif %}</div></article>
+</div>
+<div class="dashboard-grid">
+  <section class="panel chart-panel"><div class="panel-heading"><div><h3>Spending overview</h3><p>Your income and expenses over the last 6 months</p></div><span class="subtle-chip">6 months</span></div><div class="chart-area"><canvas id="monthlyChart" aria-label="Monthly income and expenses chart"></canvas></div></section>
+  <section class="panel budget-panel"><div class="panel-heading"><div><h3>Monthly budget</h3><p>Your spending limit at a glance</p></div><a class="text-link" href="{{ url_for('budgets') }}">Manage ↗</a></div>
+    {% if budget %}<div class="budget-ring-wrap"><div class="budget-ring" style="--progress: {{ usage }}%"><div class="ring-inner"><strong>{{ usage }}%</strong><span>used</span></div></div></div><div class="budget-numbers"><div><span>Spent so far</span><strong>₹{{ "{:,.2f}".format(spent) }}</strong></div><div><span>Monthly limit</span><strong>₹{{ "{:,.2f}".format(budget_amount) }}</strong></div></div><div class="progress-track"><div class="progress-fill {{ 'over' if remaining < 0 else '' }}" style="width:{{ usage }}%"></div></div><p class="budget-note">{% if remaining < 0 %}You're ₹{{ "{:,.2f}".format(-remaining) }} over your budget. Review your spending.{% else %}₹{{ "{:,.2f}".format(remaining) }} left to spend this month.{% endif %}</p>{% else %}<div class="empty-state"><div class="empty-icon">◎</div><strong>No budget set yet</strong><p>Give yourself a spending limit to stay on track.</p><a class="btn btn-secondary" href="{{ url_for('budgets') }}">Create a budget</a></div>{% endif %}
+  </section>
+</div>
+<div class="dashboard-grid lower-grid">
+  <section class="panel chart-panel"><div class="panel-heading"><div><h3>Where it goes</h3><p>Expense categories this month</p></div><a class="text-link" href="{{ url_for('reports') }}">Full report ↗</a></div>{% if category_rows %}<div class="category-chart-wrap"><div class="donut-wrap"><canvas id="categoryChart" aria-label="Expense by category chart"></canvas></div><div class="chart-legend" id="categoryLegend"></div></div>{% else %}<div class="empty-state compact"><div class="empty-icon">◌</div><strong>No spending data yet</strong><p>Add your first expense to see the breakdown.</p></div>{% endif %}</section>
+  <section class="panel recent-panel"><div class="panel-heading"><div><h3>Recent transactions</h3><p>Your latest money moves</p></div><a class="text-link" href="{{ url_for('transactions') }}">View all ↗</a></div>
+  {% if recent %}<div class="transaction-list">{% for t in recent %}<div class="transaction-row"><div class="category-symbol {{ 'symbol-income' if t.kind == 'income' else '' }}">{{ '↗' if t.kind == 'income' else '↘' }}</div><div class="transaction-info"><strong>{{ t.description or t.category.name }}</strong><span>{{ t.category.name }} · {{ t.transaction_date.strftime('%d %b %Y') }}</span></div><strong class="transaction-amount {{ 'amount-income' if t.kind == 'income' else '' }}">{{ '+' if t.kind == 'income' else '−' }}₹{{ "{:,.2f}".format(t.amount) }}</strong></div>{% endfor %}</div>{% else %}<div class="empty-state compact"><div class="empty-icon">↔</div><strong>It's a clean slate</strong><p>Your transactions will show up here.</p><a class="text-link" href="{{ url_for('transaction_form') }}">Add your first transaction →</a></div>{% endif %}
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const monthlyData = {{ monthly_rows|tojson }};
+const categoryData = {{ category_rows|map(attribute=0)|list|tojson }};
+const categoryValues = {{ category_rows|map(attribute=1)|list|tojson }};
+const moneyFmt = v => '₹' + Number(v).toLocaleString('en-IN');
+if (document.getElementById('monthlyChart')) {
+  new Chart(document.getElementById('monthlyChart'), {
+    type: 'bar',
+    data: { labels: monthlyData.map(x => x.label), datasets: [
+      { label: 'Expenses', data: monthlyData.map(x => x.expense), backgroundColor: '#1c2b40', borderRadius: 5, maxBarThickness: 22 },
+      { label: 'Income', data: monthlyData.map(x => x.income), backgroundColor: '#b7e4d0', borderRadius: 5, maxBarThickness: 22 }
+    ]},
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 7, padding: 18, color: '#6e7b8c', font: { family: 'DM Sans' } } }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + moneyFmt(c.raw) } } }, scales: { x: { grid: { display: false }, ticks: { color: '#8b96a5' }, border: { display: false } }, y: { beginAtZero: true, grid: { color: '#edf0f3' }, ticks: { color: '#8b96a5', callback: v => '₹' + Number(v).toLocaleString('en-IN') }, border: { display: false } } } }
+  });
+}
+if (document.getElementById('categoryChart')) {
+  const palette = ['#1c2b40','#77c9a6','#f3c779','#b4a2e8','#f29b8f','#7ca8dd','#9eacb9','#e7a9ce'];
+  new Chart(document.getElementById('categoryChart'), { type: 'doughnut', data: { labels: categoryData, datasets: [{ data: categoryValues, backgroundColor: palette, borderWidth: 0, hoverOffset: 5 }] }, options: { cutout: '72%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.label + ': ' + moneyFmt(c.raw) } } }, maintainAspectRatio: false } });
+  document.getElementById('categoryLegend').innerHTML = categoryData.map((name,i) => `<div class="legend-row"><span class="legend-dot" style="background:${palette[i%palette.length]}"></span><span>${name}</span><strong>${moneyFmt(categoryValues[i])}</strong></div>`).join('');
+}
+</script>
+{% endblock %}

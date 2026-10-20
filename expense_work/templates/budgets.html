@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Budgets{% endblock %}
+{% block breadcrumb %}Budgets{% endblock %}
+{% block content %}
+<div class="page-heading heading-row"><div><div class="eyebrow">A PLAN FOR YOUR MONEY</div><h1>Budgets</h1><p>Give every rupee a purpose.</p></div></div>
+<div class="budget-page-grid"><section class="panel budget-create"><div class="panel-heading"><div><h3>Set a budget</h3><p>Create an overall or category spending limit.</p></div><span class="panel-icon">◎</span></div><form method="post" class="form-stack">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label>Budget month<input type="month" name="month" value="{{ selected_month }}" required></label>
+  <label>Budget type<select name="category_id"><option value="">Overall monthly budget</option>{% for c in categories %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></label>
+  <label>Budget amount (₹)<div class="amount-input"><span>₹</span><input type="number" name="amount" min="0.01" step="0.01" placeholder="5000.00" required></div></label>
+  <button class="btn btn-primary btn-full" type="submit">Save budget <span>→</span></button>
+</form></section>
+<section class="panel budget-list-panel"><div class="panel-heading"><div><h3>Your budgets</h3><p>Limits and progress for the selected month.</p></div><form method="get"><input class="month-compact" type="month" name="month" value="{{ selected_month }}"><button class="btn btn-secondary btn-small" type="submit">View</button></form></div>
+{% if budget_items %}<div class="budget-list">{% for b in budget_items %}{% set used = (total_spent if not b.category_id else spent_by_category.get(b.category_id, 0))|float %}{% set pct = ((used / b.amount|float * 100)|int) if b.amount else 0 %}<article class="budget-item"><div class="budget-item-top"><div class="budget-category-icon">{{ '◎' if not b.category_id else b.category.name[:1]|upper }}</div><div class="budget-item-title"><strong>{{ 'Overall monthly budget' if not b.category_id else b.category.name }}</strong><span>₹{{ "{:,.2f}".format(used) }} spent of ₹{{ "{:,.2f}".format(b.amount) }}</span></div><strong class="budget-percent">{{ pct }}%</strong><form method="post" action="{{ url_for('budget_delete', budget_id=b.id) }}" onsubmit="return confirm('Remove this budget?')">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="row-delete" title="Delete budget">×</button></form></div><div class="progress-track"><div class="progress-fill {{ 'over' if pct > 100 else '' }}" style="width:{{ [pct,100]|min }}%"></div></div><div class="budget-item-bottom"><span>{{ 'Budget exceeded by ₹{:,.2f}'.format(used - b.amount|float) if used > b.amount|float else '₹{:,.2f} remaining'.format(b.amount|float - used) }}</span><span>{{ 'Over limit' if pct > 100 else 'On track' }}</span></div></article>{% endfor %}</div>{% else %}<div class="empty-state"><div class="empty-icon">◎</div><strong>No budgets for this month</strong><p>Create a budget to start tracking your limits.</p></div>{% endif %}
+</section></div>
+{% endblock %}

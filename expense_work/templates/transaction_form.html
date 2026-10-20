@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if item else 'Add' }} transaction{% endblock %}
+{% block breadcrumb %}Transactions / {{ 'Edit' if item else 'Add new' }}{% endblock %}
+{% block content %}
+<div class="page-heading"><div><div class="eyebrow">KEEP IT UP TO DATE</div><h1>{{ 'Edit transaction' if item else 'Add a transaction' }}</h1><p>Capture the details now. Future you will be glad you did.</p></div></div>
+<div class="form-page-grid"><section class="panel form-panel"><form method="post" class="form-stack transaction-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="field-label">Transaction type</div><div class="segmented"><label><input type="radio" name="kind" value="expense" {{ 'checked' if not item or item.kind == 'expense' }}><span>↘ Expense</span></label><label><input type="radio" name="kind" value="income" {{ 'checked' if item and item.kind == 'income' }}><span>↗ Income</span></label></div>
+  <label>Amount (₹)<div class="amount-input"><span>₹</span><input type="number" name="amount" min="0.01" max="99999999.99" step="0.01" placeholder="0.00" value="{{ item.amount if item else '' }}" required></div></label>
+  <label>Category<select name="category_id" id="categorySelect" required><option value="">Choose a category</option>{% for c in categories %}<option value="{{ c.id }}" data-kind="{{ c.kind }}" {{ 'selected' if item and item.category_id == c.id }}>{{ c.name }}</option>{% endfor %}</select></label>
+  <label>Date<input type="date" name="transaction_date" value="{{ item.transaction_date.isoformat() if item else today.isoformat() }}" required></label>
+  <label>Payment method<select name="payment_method">{% for p in ['UPI','Cash','Card','Bank transfer','Other'] %}<option {{ 'selected' if item and item.payment_method == p }}>{{ p }}</option>{% endfor %}</select></label>
+  <label>Description <span class="optional">(optional)</span><input name="description" maxlength="255" placeholder="e.g. Lunch with friends" value="{{ item.description if item else '' }}"></label>
+  <div class="form-actions"><a class="btn btn-secondary" href="{{ url_for('transactions') }}">Cancel</a><button class="btn btn-primary" type="submit">{{ 'Save changes' if item else 'Save transaction' }} <span>→</span></button></div>
+</form></section><aside class="form-tip"><div class="tip-icon">✦</div><h3>A little awareness goes a long way.</h3><p>Tracking even the small things can reveal patterns that help you save for what matters.</p><div class="tip-divider"></div><div class="tip-point"><span>01</span><div><strong>Be consistent</strong><p>Add transactions as they happen.</p></div></div><div class="tip-point"><span>02</span><div><strong>Choose a category</strong><p>Make your spending insights more useful.</p></div></div></aside></div>
+{% endblock %}

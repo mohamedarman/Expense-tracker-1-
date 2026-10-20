@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block breadcrumb %}Reports{% endblock %}
+{% block content %}
+<div class="page-heading heading-row"><div><div class="eyebrow">THE BIGGER PICTURE</div><h1>Reports & insights</h1><p>Understand your habits and make your next move count.</p></div><a class="btn btn-secondary" href="{{ url_for('export_csv') }}">↓ Export CSV</a></div>
+<section class="panel report-filter"><form method="get"><label>Report month<input type="month" name="month" value="{{ selected_month }}"></label><button class="btn btn-primary" type="submit">Update report →</button></form></section>
+<div class="stat-grid report-stats"><article class="stat-card"><div class="stat-top"><span>Total income</span><span class="stat-icon icon-green">↗</span></div><div class="stat-value">₹{{ "{:,.2f}".format(totals.income) }}</div><div class="stat-foot">For {{ selected_month }}</div></article><article class="stat-card"><div class="stat-top"><span>Total expenses</span><span class="stat-icon">↘</span></div><div class="stat-value">₹{{ "{:,.2f}".format(totals.expense) }}</div><div class="stat-foot">For {{ selected_month }}</div></article><article class="stat-card"><div class="stat-top"><span>Net balance</span><span class="stat-icon icon-purple">◈</span></div><div class="stat-value">₹{{ "{:,.2f}".format(totals.income - totals.expense) }}</div><div class="stat-foot">Income minus expenses</div></article></div>
+<div class="panel report-panel"><div class="panel-heading"><div><h3>Category breakdown</h3><p>Where your spending went in {{ selected_month }}</p></div></div>
+{% if categories %}<div class="report-categories">{% for name, amount in categories %}{% set pct = (amount / totals.expense * 100)|int if totals.expense else 0 %}<div class="report-category"><div class="report-category-head"><strong>{{ name }}</strong><span>₹{{ "{:,.2f}".format(amount) }} <small>{{ pct }}%</small></span></div><div class="progress-track"><div class="progress-fill" style="width:{{ pct }}%"></div></div></div>{% endfor %}</div>{% else %}<div class="empty-state"><div class="empty-icon">▥</div><strong>No expenses in this period</strong><p>Once you record expenses, your insights will appear here.</p></div>{% endif %}
+</div>
+{% endblock %}
