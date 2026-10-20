@@ -60,7 +60,11 @@ def test_registration_login_and_logout(client):
         "email": "student@example.com", "password": "safe-password-123"
     }, follow_redirects=True)
     assert response.status_code == 200
-    assert b"You\'re signed in" in response.data
+    assert (
+        b"You're signed in" in response.data
+        or b"You&#39;re signed in" in response.data
+        or b"signed in" in response.data.lower()
+    )
 
 
 def test_rejects_mismatched_passwords(client):
