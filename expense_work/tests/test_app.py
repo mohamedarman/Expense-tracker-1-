@@ -1,4 +1,14 @@
 import os
+import sys
+
+# Ensure expense_work directory is always in sys.path for test execution
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+EXPENSE_WORK_DIR = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
+ROOT_DIR = os.path.abspath(os.path.join(EXPENSE_WORK_DIR, ".."))
+
+for p in [EXPENSE_WORK_DIR, ROOT_DIR]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 os.environ.setdefault("SECRET_KEY", "test-secret-key-that-is-long-enough-for-tests")
 os.environ.setdefault("FLASK_DEBUG", "false")

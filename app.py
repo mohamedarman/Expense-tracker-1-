@@ -9,7 +9,7 @@ EXPENSE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "expense_
 if EXPENSE_DIR not in sys.path:
     sys.path.insert(0, EXPENSE_DIR)
 
-from app import app, db, seed_categories  # noqa: F401
+from app import app, db, User, Category, Transaction, Budget, seed_categories  # noqa: F401
 
 if __name__ == "__main__":
     with app.app_context():
