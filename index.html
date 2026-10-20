@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pennywise - Student Expense Tracker</title>
+    <meta name="description" content="Student expense tracker and personal finance web application archive viewer and explorer." />
+    <meta property="og:title" content="Pennywise - Student Expense Tracker" />
+    <meta property="og:description" content="Student expense tracker and personal finance web application archive viewer and explorer." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script type="module" crossorigin src="./assets/index-WcqxWFLx.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-CvmD8CBe.css">
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      // If hosted on GitHub Pages with root branch deployment (unbundled source), route to compiled /docs/
+      if (
+        window.location.hostname.endsWith('github.io') &&
+        !window.location.pathname.includes('/docs/') &&
+        !window.location.pathname.includes('/dist/')
+      ) {
+        var rawScript = document.querySelector('script[src*="/src/main.tsx"]');
+        if (rawScript) {
+          var target = window.location.pathname.replace(/\/index\.html$/, '');
+          if (!target.endsWith('/')) target += '/';
+          window.location.replace(target + 'docs/');
+        }
+      }
+    </script>
+  </body>
+</html>
+
