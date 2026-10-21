@@ -252,7 +252,7 @@ export class ClientStore {
     return {
       user: safeUser,
       token: `client_token_${newUser.id}_${Date.now()}`,
-      message: `Account created successfully! Welcome to Pennywise, ${newUser.name}.`,
+      message: `Account created successfully! Welcome to CostCurve, ${newUser.name}.`,
     };
   }
 
@@ -864,7 +864,7 @@ export class ClientStore {
       insights.push(
         {
           type: 'info',
-          title: 'Welcome to Pennywise!',
+          title: 'Welcome to CostCurve!',
           message: 'Ready to build mindful financial habits? Click "+ Log Expense" above to record your first transaction.',
         },
         {

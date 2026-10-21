@@ -193,7 +193,7 @@ export default function App() {
     return (
       <div className="h-screen w-screen bg-slate-950 flex flex-col items-center justify-center space-y-3">
         <div className="w-10 h-10 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
-        <span className="text-xs text-slate-400 font-mono">Initializing Pennywise...</span>
+        <span className="text-xs text-slate-400 font-mono">Initializing CostCurve...</span>
       </div>
     );
   }

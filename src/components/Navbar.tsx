@@ -44,7 +44,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </button>
 
         <a href="#dashboard" className="flex items-center gap-2.5 group">
-          <img src="/assets/aistudio/file_00000000635881f494a8751ee208d398_bba9bdb9.png" alt="CostCurve" className="w-8 h-8 rounded-lg"/>
+          <img src="/logo.png" alt="CostCurve" className="w-8 h-8 rounded-lg"/>
           <span className="font-extrabold text-white text-base tracking-tight whitespace-nowrap">
             CostCurve
           </span>
