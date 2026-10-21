@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { GraduationCap, ArrowRight, Lock, Mail, User as UserIcon, BookOpen } from 'lucide-react';
 import { api } from '../api.ts';
-import { clientStore } from '../clientStore.ts';
 import { User } from '../types.ts';
 
 interface AuthModalProps {
@@ -56,24 +55,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
     }
   };
 
-  const handleUseDemo = async () => {
-    setError(null);
-    setLoading(true);
-    try {
-      try {
-        const res = await api.login('demo@student.edu', 'StudentPass123!');
-        onSuccess(res.user);
-      } catch {
-        const res = clientStore.seedDemoUser();
-        onSuccess(res.user);
-      }
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="fixed inset-0 bg-slate-950 z-50 flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-6 shadow-2xl relative my-8">
@@ -86,28 +67,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
           <p className="text-xs text-slate-400">
             Smart, student-friendly personal finance and allowance tracker
           </p>
-        </div>
-
-        {/* Demo Account Quick Access Card */}
-        <div className="p-3.5 rounded-2xl bg-slate-800/50 border border-slate-700/60 space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-semibold text-teal-300">
-              Instant Demo Account
-            </span>
-            <span className="text-[11px] text-slate-400 font-mono">Pre-seeded with records</span>
-          </div>
-          <p className="text-[11px] text-slate-300">
-            Want to test immediately? Sign in with one click to view preloaded student expenses, hostel bills, and goals:
-          </p>
-          <button
-            type="button"
-            onClick={handleUseDemo}
-            disabled={loading}
-            className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-          >
-            <span>Launch Pre-Loaded Demo (Alex Chen)</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
         </div>
 
         {/* Form Mode Toggle */}

@@ -77,6 +77,23 @@ function getInitialData(): ClientDatabaseSchema {
   };
 }
 
+// Clean up legacy storage keys that contained hardcoded demo data from older builds
+if (typeof localStorage !== 'undefined') {
+  const legacyKeys = [
+    'pennywise_client_database',
+    'pennywise_client_database_v1',
+    'pennywise_client_database_v2',
+    'pennywise_client_database_v3',
+    'pennywise_transactions',
+    'pennywise_demo_data',
+  ];
+  for (const k of legacyKeys) {
+    try {
+      localStorage.removeItem(k);
+    } catch {}
+  }
+}
+
 export class ClientStore {
   private db: ClientDatabaseSchema;
   private currentUserId: string | null = null;
@@ -237,84 +254,6 @@ export class ClientStore {
       token: `client_token_${newUser.id}_${Date.now()}`,
       message: `Account created successfully! Welcome to Pennywise, ${newUser.name}.`,
     };
-  }
-
-  public seedDemoUser(): { user: User; token: string; message: string } {
-    const demoEmail = 'alex.chen@university.edu';
-    let demoUser = this.db.users.find((u) => u.email.toLowerCase() === demoEmail);
-
-    if (!demoUser) {
-      const now = new Date();
-      const demoId = 'usr_alex_demo_isolated';
-      demoUser = {
-        id: demoId,
-        name: 'Alex Chen',
-        email: demoEmail,
-        currency: '₹',
-        theme: 'dark',
-        monthlyBudget: 22000,
-        semesterBudget: 120000,
-        semesterEndDate: `${now.getFullYear()}-12-20`,
-        collegeName: 'State Tech University',
-        degreeSemester: 'Computer Science (Semester 4)',
-        createdAt: new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString(),
-        passwordHash: 'DemoPassword123!',
-      };
-      this.db.users.push(demoUser);
-
-      // Seed records strictly belonging to demoId
-      const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-      this.db.transactions.push(
-        {
-          id: `tx_demo_01_${Date.now()}`,
-          userId: demoId,
-          amount: 18000,
-          kind: 'income',
-          categoryId: 'cat-allowance',
-          categoryName: 'Allowance / Pocket Money',
-          description: 'Monthly Family Pocket Allowance',
-          merchant: 'Parents Bank Transfer',
-          date: `${yearMonth}-01`,
-          paymentMethod: 'UPI',
-          account: 'Primary Bank',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: `tx_demo_02_${Date.now()}`,
-          userId: demoId,
-          amount: 4500,
-          kind: 'expense',
-          categoryId: 'cat-hostel',
-          categoryName: 'Hostel & Rent',
-          description: 'Monthly Hostel Room Rent',
-          merchant: 'Campus Housing',
-          date: `${yearMonth}-02`,
-          paymentMethod: 'UPI',
-          account: 'Primary Bank',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: `tx_demo_03_${Date.now()}`,
-          userId: demoId,
-          amount: 1200,
-          kind: 'expense',
-          categoryId: 'cat-food',
-          categoryName: 'Food & Mess',
-          description: 'Campus Mess Meal Pass',
-          merchant: 'Student Dining',
-          date: `${yearMonth}-03`,
-          paymentMethod: 'UPI',
-          account: 'Primary Bank',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }
-      );
-      this.save();
-    }
-
-    return this.login(demoEmail, 'DemoPassword123!');
   }
 
   public updateProfile(updates: Partial<User>): { user: User; message: string } {

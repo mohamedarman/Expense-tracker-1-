@@ -27,8 +27,16 @@ export function clearStoredToken() {
   clientStore.setCurrentUserId(null);
 }
 
-// Check if app is hosted statically (e.g. GitHub Pages) where backend is absent
+// API Base URL (configured via Vite env VITE_API_BASE_URL or window.__API_BASE_URL__)
+export const API_BASE_URL =
+  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_BASE_URL) ||
+  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_BACKEND_URL) ||
+  (typeof window !== 'undefined' && (window as any).__API_BASE_URL__) ||
+  '';
+
+// Check if app is hosted statically without a custom API base URL
 export const isStaticDeployment =
+  !API_BASE_URL &&
   typeof window !== 'undefined' &&
   (window.location.hostname.endsWith('github.io') ||
     window.location.protocol === 'file:' ||
@@ -37,7 +45,7 @@ export const isStaticDeployment =
 let serverAvailable = !isStaticDeployment;
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  if (!serverAvailable) {
+  if (!serverAvailable && !API_BASE_URL) {
     throw new Error('Static environment: using local store');
   }
 
@@ -52,8 +60,10 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     headers.set('Authorization', `Bearer ${token}`);
   }
 
+  const url = API_BASE_URL ? `${API_BASE_URL.replace(/\/$/, '')}${endpoint}` : endpoint;
+
   try {
-    const res = await fetch(endpoint, {
+    const res = await fetch(url, {
       ...options,
       headers,
     });
