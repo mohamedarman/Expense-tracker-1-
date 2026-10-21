@@ -175,7 +175,7 @@ def register():
             db.session.commit()
             session.clear()
             session["user_id"] = user.id
-            flash("Welcome to Pennywise. Your account is ready!", "success")
+            flash("Welcome to CostCurve. Your account is ready!", "success")
             return redirect(url_for("dashboard"))
     return render_template("register.html")
 

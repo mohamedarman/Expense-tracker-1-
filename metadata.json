@@ -1,5 +1,5 @@
 {
-  "name": "Pennywise - Student Expense Tracker",
+  "name": "CostCurve - Student Expense Tracker",
   "description": "Student expense tracker and personal finance web application archive viewer and explorer.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

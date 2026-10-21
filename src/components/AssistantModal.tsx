@@ -31,7 +31,7 @@ export const AssistantModal: React.FC<AssistantModalProps> = ({
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      text: `Hello ${user.name}! I am your Pennywise AI Student Advisor. I'm connected directly to your ledger to answer questions about your monthly budget, daily safe-to-spend limit, hostel dues, and categories. What would you like to know?`,
+      text: `Hello ${user.name}! I am your CostCurve AI Student Advisor. I'm connected directly to your ledger to answer questions about your monthly budget, daily safe-to-spend limit, hostel dues, and categories. What would you like to know?`,
     },
   ]);
   const [input, setInput] = useState('');

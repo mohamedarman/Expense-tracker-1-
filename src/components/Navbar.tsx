@@ -44,11 +44,9 @@ export const Navbar: React.FC<NavbarProps> = ({
         </button>
 
         <a href="#dashboard" className="flex items-center gap-2.5 group">
-          <div className="w-8 h-8 rounded-lg bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-teal-400 group-hover:border-teal-400/60 transition-colors">
-            <GraduationCap className="w-4 h-4" />
-          </div>
+          <img src="/assets/aistudio/file_00000000635881f494a8751ee208d398_bba9bdb9.png" alt="CostCurve" className="w-8 h-8 rounded-lg"/>
           <span className="font-extrabold text-white text-base tracking-tight whitespace-nowrap">
-            Pennywise
+            CostCurve
           </span>
         </a>
       </div>

@@ -1,5 +1,5 @@
 -- =========================================================================
--- Pennywise: Student Expense Tracker
+-- CostCurve: Student Expense Tracker
 -- Supabase / PostgreSQL Production Schema with Strict Row-Level Security (RLS)
 -- Guarantees 100% User Isolation: Zero cross-account data leakage
 -- =========================================================================

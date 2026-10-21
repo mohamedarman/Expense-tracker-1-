@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#101c2c">
-  <title>{% block title %}Pennywise{% endblock %} · Student Expense Tracker</title>
+  <title>{% block title %}CostCurve{% endblock %} · Student Expense Tracker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
@@ -14,7 +14,7 @@
 {% if current_user %}
 <div class="app-shell">
   <aside class="sidebar" id="sidebar">
-    <a class="brand" href="{{ url_for('dashboard') }}"><span class="brand-mark">p</span><span>Pennywise<span class="brand-dot">.</span><small>STUDENT FINANCE</small></span></a>
+    <a class="brand" href="{{ url_for('dashboard') }}"><img src="{{ url_for('static', filename='aistudio/logo.png') }}" alt="CostCurve" style="height: 32px; width: auto;"/><span>CostCurve<span class="brand-dot">.</span><small>STUDENT FINANCE</small></span></a>
     <div class="side-label">WORKSPACE</div>
     <nav class="nav-list">
       <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}"><span class="nav-icon">◫</span> Overview</a>
@@ -36,13 +36,13 @@
       {% endwith %}
       {% block content %}{% endblock %}
     </section>
-    <footer class="footer">Made for mindful money habits <span>·</span> Pennywise © {{ today.year }}</footer>
+    <footer class="footer">Made for mindful money habits <span>·</span> CostCurve © {{ today.year }}</footer>
   </main>
 </div>
 {% else %}
   <main class="auth-shell">
     <section class="auth-visual">
-      <a class="brand brand-light" href="{{ url_for('login') }}"><span class="brand-mark">p</span><span>Pennywise<span class="brand-dot">.</span><small>STUDENT FINANCE</small></span></a>
+      <a class="brand brand-light" href="{{ url_for('login') }}"><img src="{{ url_for('static', filename='aistudio/logo.png') }}" alt="CostCurve" style="height: 32px; width: auto;"/><span>CostCurve<span class="brand-dot">.</span><small>STUDENT FINANCE</small></span></a>
       <div class="auth-message"><div class="eyebrow"><span></span> YOUR MONEY, MORE MINDFUL</div><h1>Good habits.<br><em>Great futures.</em></h1><p>Make sense of your spending, stay in control of your budget, and make room for what matters.</p>
       <div class="visual-stat"><div class="visual-stat-icon">↗</div><div><strong>Spend with intention.</strong><span>Your goals are closer than you think.</span></div></div></div>
       <div class="visual-orb orb-one"></div><div class="visual-orb orb-two"></div><div class="auth-visual-footer">A little clarity goes a long way.</div>

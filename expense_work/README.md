@@ -1,4 +1,4 @@
-# Pennywise — Student Expense Tracker
+# CostCurve — Student Expense Tracker
 
 A responsive student finance web app built with Flask, MySQL, SQLAlchemy, HTML, CSS, JavaScript, and Chart.js.
 

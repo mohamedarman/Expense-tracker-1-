@@ -1,4 +1,4 @@
-# Pennywise — Smart Student Expense Tracker
+# CostCurve — Smart Student Expense Tracker
 
 A production-quality full-stack personal finance and allowance management web application designed specifically for college students.
 

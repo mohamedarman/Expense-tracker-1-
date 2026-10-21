@@ -60,10 +60,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
       <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-6 shadow-2xl relative my-8">
         {/* Brand Header */}
         <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-xl bg-teal-500/15 border border-teal-500/30 mx-auto flex items-center justify-center text-teal-300">
-            <GraduationCap className="w-6 h-6" />
+          <div className="w-16 h-16 mx-auto flex items-center justify-center">
+            <img src="/assets/aistudio/file_00000000635881f494a8751ee208d398_bba9bdb9.png" alt="CostCurve" className="w-full h-full rounded-xl"/>
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Pennywise</h1>
+          <h1 className="text-2xl font-bold text-white tracking-tight">CostCurve</h1>
           <p className="text-xs text-slate-400">
             Smart, student-friendly personal finance and allowance tracker
           </p>
@@ -218,7 +218,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
             disabled={loading}
             className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-slate-950 font-bold rounded-xl text-xs transition-colors shadow-lg shadow-emerald-500/20"
           >
-            {loading ? 'Please wait...' : isRegister ? 'Complete Registration' : 'Sign In to Pennywise'}
+            {loading ? 'Please wait...' : isRegister ? 'Complete Registration' : 'Sign In to CostCurve'}
           </button>
         </form>
       </div>
