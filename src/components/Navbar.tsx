@@ -9,6 +9,7 @@ import {
   Bot,
 } from 'lucide-react';
 import { User } from '../types.ts';
+import logo from '../assets/logo.png';
 
 interface NavbarProps {
   user: User;
@@ -43,9 +44,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           <Menu className="w-4 h-4" />
         </button>
 
-        <a href="#dashboard" className="flex items-center gap-2.5 group">
-          <img src="/logo.png" alt="CostCurve" className="w-8 h-8 rounded-lg"/>
-          <span className="font-extrabold text-white text-base tracking-tight whitespace-nowrap">
+        <a href="#dashboard" className="flex flex-col items-center justify-center group gap-0.5">
+          <img src={logo} alt="CostCurve" className="w-6 h-6 rounded-md"/>
+          <span className="font-extrabold text-white text-[10px] tracking-tight whitespace-nowrap">
             CostCurve
           </span>
         </a>
