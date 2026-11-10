@@ -20,6 +20,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
   const [currency, setCurrency] = useState('₹');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const handleGoogleSignIn = async () => {
+    setError(null);
+    setGoogleLoading(true);
+    try {
+      const res = await api.loginWithGoogle();
+      onSuccess(res.user);
+    } catch (err: any) {
+      if (err?.code !== 'auth/popup-closed-by-user') {
+        setError(err?.message || 'Google sign-in failed. Please try again.');
+      }
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,7 +54,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
           name: name.trim(),
           email: email.trim().toLowerCase(),
           password,
-          confirmPassword,
           collegeName: collegeName.trim() || 'College / University',
           degreeSemester: degreeSemester.trim(),
           monthlyBudget: parseFloat(monthlyBudget) || 15000,
@@ -62,19 +77,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
       <div className="hidden lg:flex lg:col-span-7 surface-deep border-r hairline-border p-12 xl:p-16 flex-col justify-between">
         <div className="max-w-xl space-y-6">
           <div className="text-[13px] font-mono text-ink-muted">
-            Student allowance and expense ledger
+            Cloud-synced student allowance and expense ledger
           </div>
           <h2 className="text-[36px] xl:text-[42px] font-medium text-ink-primary leading-[1.1] tracking-[-0.02em] text-balance">
             Know what you can spend today without running short before exams
           </h2>
           <p className="text-[15px] text-ink-secondary leading-relaxed max-w-lg">
-            CostCurve divides your remaining monthly stipend by the days left in the month, tracks hostel and mess commitments, and keeps roommate splits in one private ledger.
+            CostCurve divides your remaining monthly stipend by the days left in the month, tracks hostel and mess commitments, and keeps roommate splits in one private Firebase-secured ledger across all your devices.
           </p>
         </div>
 
         {/* Rendered Product Preview & Physical Campus Card Moment */}
         <div className="max-w-xl w-full space-y-4 my-8">
-          {/* Physical Campus Allowance Card built in code with real material steps */}
           <div
             className="p-6 rounded-xl bg-[#1c1c1f] border border-white/10 text-[#ededed] space-y-6"
             style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.12), 0 16px 36px rgba(0,0,0,0.4)' }}
@@ -100,7 +114,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
               </div>
             </div>
 
-            {/* Allowance Pace Bar with Today Marker */}
             <div className="space-y-2">
               <div className="flex items-center justify-between text-[12px] font-mono text-[#a1a1a6]">
                 <span>₹8,400 spent of ₹15,000 budget</span>
@@ -113,14 +126,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
 
             <div className="pt-3 border-t border-white/8 flex items-center justify-between text-[12px] font-mono text-[#85858b]">
               <span>Semester 5 · Computer Science</span>
-              <span> Essential share: 74%</span>
+              <span>Essential share: 74%</span>
             </div>
           </div>
         </div>
 
         <div className="flex items-center justify-between text-[12px] text-ink-muted font-mono">
-          <span>Private account isolation</span>
-          <span>CSV import and PDF statements</span>
+          <span>Firebase Auth &amp; Cloud Firestore</span>
+          <span>Zero-trust account isolation</span>
         </div>
       </div>
 
@@ -143,6 +156,30 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
                 Student expense and allowance tracker
               </p>
             </div>
+          </div>
+
+          {/* Primary Google Sign-In Button */}
+          <button
+            type="button"
+            onClick={handleGoogleSignIn}
+            disabled={googleLoading || loading}
+            className="w-full h-10 btn-primary rounded-lg text-[13px] font-medium flex items-center justify-center gap-2.5 disabled:opacity-50"
+          >
+            <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27 3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10 5.35 0 9.25-3.67 9.25-9.09 0-1.15-.15-1.81-.15-1.81Z"
+              />
+            </svg>
+            <span>
+              {googleLoading ? 'Connecting to Google...' : 'Continue with Google'}
+            </span>
+          </button>
+
+          <div className="flex items-center gap-3 text-[11px] font-mono text-ink-muted">
+            <div className="flex-1 border-t hairline-border" />
+            <span>or use email &amp; password</span>
+            <div className="flex-1 border-t hairline-border" />
           </div>
 
           {/* Mode Switcher */}
@@ -178,7 +215,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
           </div>
 
           {error && (
-            <div className="p-3 rounded-lg bg-[#e5484d]/10 border border-[#e5484d]/30 text-negative text-[13px]">
+            <div className="p-3 rounded-lg bg-[#e5484d]/10 border border-[#e5484d]/30 text-negative text-[13px] leading-relaxed">
               {error}
             </div>
           )}
@@ -192,6 +229,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
                   <input
                     type="text"
                     required
+                    maxLength={100}
                     placeholder="Alex Chen"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -208,6 +246,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
                 <input
                   type="email"
                   required
+                  maxLength={254}
                   placeholder="student@college.edu"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -256,6 +295,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
                     <label className="block text-ink-secondary">College or university</label>
                     <input
                       type="text"
+                      maxLength={120}
                       placeholder="State Tech"
                       value={collegeName}
                       onChange={(e) => setCollegeName(e.target.value)}
@@ -266,6 +306,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
                     <label className="block text-ink-secondary">Degree and semester</label>
                     <input
                       type="text"
+                      maxLength={120}
                       placeholder="Sem 3"
                       value={degreeSemester}
                       onChange={(e) => setDegreeSemester(e.target.value)}
@@ -292,6 +333,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
                     <label className="block text-ink-secondary">Monthly allowance</label>
                     <input
                       type="number"
+                      min={0}
+                      max={100000000}
                       value={monthlyBudget}
                       onChange={(e) => setMonthlyBudget(e.target.value)}
                       className="w-full h-9 px-3 input-field rounded-lg text-[13px] font-mono tabular-nums"
@@ -303,14 +346,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
 
             <button
               type="submit"
-              disabled={loading}
-              className="w-full h-10 btn-primary rounded-lg text-[13px] font-medium disabled:opacity-50 mt-2"
+              disabled={loading || googleLoading}
+              className="w-full h-10 btn-secondary rounded-lg text-[13px] font-medium disabled:opacity-50 mt-2"
             >
               {loading
                 ? 'Please wait...'
                 : isRegister
                 ? 'Create student account'
-                : 'Sign in to CostCurve'}
+                : 'Sign in with email'}
             </button>
           </form>
         </div>

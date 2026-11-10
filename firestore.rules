@@ -1,0 +1,501 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Default-Deny Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 1. Hardened Global Primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isBootstrappedOwner() {
+      return isVerified() && request.auth.token.email == 'mohamedarman536@gmail.com';
+    }
+
+    function isAdmin() {
+      return isBootstrappedOwner() || (isVerified() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+    }
+
+    // 2. Entity Validation Blueprints (Anti-Update-Gap)
+    function isValidUserProfile(data) {
+      return data.keys().hasAll([
+        'id', 'name', 'email', 'currency', 'theme',
+        'monthlyBudget', 'semesterBudget', 'semesterEndDate',
+        'collegeName', 'degreeSemester', 'status', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id', 'name', 'email', 'currency', 'theme',
+        'monthlyBudget', 'semesterBudget', 'semesterEndDate',
+        'collegeName', 'degreeSemester', 'status', 'createdAt', 'updatedAt'
+      ]) &&
+      isValidId(data.id) &&
+      data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+      data.email is string && data.email.size() >= 3 && data.email.size() <= 254 &&
+      data.currency is string && data.currency.size() >= 1 && data.currency.size() <= 10 &&
+      data.theme is string && data.theme.size() <= 16 && (data.theme == 'dark' || data.theme == 'light') &&
+      data.monthlyBudget is number && data.monthlyBudget >= 0 && data.monthlyBudget <= 100000000 &&
+      data.semesterBudget is number && data.semesterBudget >= 0 && data.semesterBudget <= 500000000 &&
+      data.semesterEndDate is string && data.semesterEndDate.size() >= 1 && data.semesterEndDate.size() <= 32 &&
+      data.collegeName is string && data.collegeName.size() <= 120 &&
+      data.degreeSemester is string && data.degreeSemester.size() <= 120 &&
+      data.status is string && data.status.size() <= 16 && (data.status == 'active' || data.status == 'suspended') &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidAdminRecord(data) {
+      return data.keys().hasAll(['uid', 'email', 'grantedBy', 'role', 'createdAt', 'updatedAt']) &&
+      data.keys().hasOnly(['uid', 'email', 'grantedBy', 'role', 'createdAt', 'updatedAt']) &&
+      isValidId(data.uid) &&
+      data.email is string && data.email.size() >= 3 && data.email.size() <= 254 &&
+      isValidId(data.grantedBy) &&
+      data.grantedBy == request.auth.uid &&
+      data.role is string && data.role.size() <= 16 && (data.role == 'admin' || data.role == 'owner') &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidCategory(data) {
+      return data.keys().hasAll(['id', 'userId', 'name', 'kind', 'color', 'icon', 'isEssential', 'createdAt', 'updatedAt']) &&
+      data.keys().hasOnly(['id', 'userId', 'name', 'kind', 'color', 'icon', 'isEssential', 'createdAt', 'updatedAt']) &&
+      isValidId(data.id) &&
+      isValidId(data.userId) &&
+      data.userId == request.auth.uid &&
+      data.name is string && data.name.size() >= 1 && data.name.size() <= 80 &&
+      data.kind is string && data.kind.size() <= 16 && (data.kind == 'expense' || data.kind == 'income') &&
+      data.color is string && data.color.size() >= 1 && data.color.size() <= 32 &&
+      data.icon is string && data.icon.size() >= 1 && data.icon.size() <= 64 &&
+      data.isEssential is bool &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidTransaction(data) {
+      return data.keys().hasAll([
+        'id', 'userId', 'amount', 'kind', 'categoryId', 'categoryName',
+        'description', 'merchant', 'date', 'paymentMethod', 'account',
+        'notes', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id', 'userId', 'amount', 'kind', 'categoryId', 'categoryName',
+        'description', 'merchant', 'date', 'paymentMethod', 'account',
+        'notes', 'recurringId', 'createdAt', 'updatedAt'
+      ]) &&
+      isValidId(data.id) &&
+      isValidId(data.userId) &&
+      data.userId == request.auth.uid &&
+      data.amount is number && data.amount >= 0 && data.amount <= 100000000 &&
+      data.kind is string && data.kind.size() <= 16 && (data.kind == 'expense' || data.kind == 'income') &&
+      isValidId(data.categoryId) &&
+      data.categoryName is string && data.categoryName.size() >= 1 && data.categoryName.size() <= 80 &&
+      data.description is string && data.description.size() >= 1 && data.description.size() <= 200 &&
+      data.merchant is string && data.merchant.size() <= 120 &&
+      data.date is string && data.date.size() >= 8 && data.date.size() <= 32 &&
+      data.paymentMethod is string && data.paymentMethod.size() <= 32 &&
+      (data.paymentMethod == 'UPI' || data.paymentMethod == 'Cash' || data.paymentMethod == 'Card' || data.paymentMethod == 'Net Banking' || data.paymentMethod == 'Digital Wallet' || data.paymentMethod == 'Other') &&
+      data.account is string && data.account.size() <= 40 &&
+      (data.account == 'Primary Bank' || data.account == 'Pocket Cash' || data.account == 'College ID / Campus Card' || data.account == 'Savings' || data.account == 'Digital Wallet') &&
+      data.notes is string && data.notes.size() <= 500 &&
+      (!('recurringId' in data) || (data.recurringId is string && data.recurringId.size() <= 128)) &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidBudget(data) {
+      return data.keys().hasAll(['id', 'userId', 'categoryId', 'period', 'month', 'amount', 'warningThreshold', 'createdAt', 'updatedAt']) &&
+      data.keys().hasOnly(['id', 'userId', 'categoryId', 'period', 'month', 'amount', 'warningThreshold', 'createdAt', 'updatedAt']) &&
+      isValidId(data.id) &&
+      isValidId(data.userId) &&
+      data.userId == request.auth.uid &&
+      isValidId(data.categoryId) &&
+      data.period is string && data.period.size() <= 16 && (data.period == 'monthly' || data.period == 'semester' || data.period == 'weekly') &&
+      data.month is string && data.month.size() >= 4 && data.month.size() <= 16 &&
+      data.amount is number && data.amount >= 0 && data.amount <= 100000000 &&
+      data.warningThreshold is number && data.warningThreshold >= 1 && data.warningThreshold <= 100 &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidSavingsGoal(data) {
+      return data.keys().hasAll(['id', 'userId', 'title', 'targetAmount', 'currentAmount', 'targetDate', 'category', 'icon', 'status', 'createdAt', 'updatedAt']) &&
+      data.keys().hasOnly(['id', 'userId', 'title', 'targetAmount', 'currentAmount', 'targetDate', 'category', 'icon', 'status', 'createdAt', 'updatedAt']) &&
+      isValidId(data.id) &&
+      isValidId(data.userId) &&
+      data.userId == request.auth.uid &&
+      data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+      data.targetAmount is number && data.targetAmount > 0 && data.targetAmount <= 100000000 &&
+      data.currentAmount is number && data.currentAmount >= 0 && data.currentAmount <= 100000000 &&
+      data.targetDate is string && data.targetDate.size() >= 4 && data.targetDate.size() <= 32 &&
+      data.category is string && data.category.size() >= 1 && data.category.size() <= 80 &&
+      data.icon is string && data.icon.size() >= 1 && data.icon.size() <= 64 &&
+      data.status is string && data.status.size() <= 16 && (data.status == 'in_progress' || data.status == 'completed') &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidRecurringPayment(data) {
+      return data.keys().hasAll([
+        'id', 'userId', 'title', 'amount', 'kind', 'categoryId',
+        'frequency', 'nextDueDate', 'paymentMethod', 'status',
+        'autoLog', 'notes', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id', 'userId', 'title', 'amount', 'kind', 'categoryId',
+        'frequency', 'nextDueDate', 'paymentMethod', 'status',
+        'autoLog', 'notes', 'createdAt', 'updatedAt'
+      ]) &&
+      isValidId(data.id) &&
+      isValidId(data.userId) &&
+      data.userId == request.auth.uid &&
+      data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+      data.amount is number && data.amount >= 0 && data.amount <= 100000000 &&
+      data.kind is string && data.kind.size() <= 16 && (data.kind == 'expense' || data.kind == 'income') &&
+      isValidId(data.categoryId) &&
+      data.frequency is string && data.frequency.size() <= 16 &&
+      (data.frequency == 'daily' || data.frequency == 'weekly' || data.frequency == 'monthly' || data.frequency == 'semester' || data.frequency == 'yearly') &&
+      data.nextDueDate is string && data.nextDueDate.size() >= 4 && data.nextDueDate.size() <= 32 &&
+      data.paymentMethod is string && data.paymentMethod.size() <= 32 &&
+      (data.paymentMethod == 'UPI' || data.paymentMethod == 'Cash' || data.paymentMethod == 'Card' || data.paymentMethod == 'Net Banking' || data.paymentMethod == 'Digital Wallet' || data.paymentMethod == 'Other') &&
+      data.status is string && data.status.size() <= 16 && (data.status == 'active' || data.status == 'paused' || data.status == 'cancelled') &&
+      data.autoLog is bool &&
+      data.notes is string && data.notes.size() <= 500 &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidSplitExpense(data) {
+      return data.keys().hasAll([
+        'id', 'userId', 'title', 'totalAmount', 'userShare',
+        'date', 'paidBy', 'status', 'participants', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id', 'userId', 'title', 'totalAmount', 'userShare',
+        'date', 'paidBy', 'status', 'participants', 'createdAt', 'updatedAt'
+      ]) &&
+      isValidId(data.id) &&
+      isValidId(data.userId) &&
+      data.userId == request.auth.uid &&
+      data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+      data.totalAmount is number && data.totalAmount >= 0 && data.totalAmount <= 100000000 &&
+      data.userShare is number && data.userShare >= 0 && data.userShare <= 100000000 &&
+      data.date is string && data.date.size() >= 4 && data.date.size() <= 32 &&
+      data.paidBy is string && data.paidBy.size() >= 1 && data.paidBy.size() <= 100 &&
+      data.status is string && data.status.size() <= 16 && (data.status == 'pending' || data.status == 'settled') &&
+      data.participants is list && data.participants.size() <= 20 &&
+      (data.participants.size() == 0 || (
+        data.participants[0] is map &&
+        data.participants[0].keys().hasAll(['name', 'amount', 'settled']) &&
+        data.participants[0].keys().hasOnly(['name', 'amount', 'settled']) &&
+        data.participants[0].name is string && data.participants[0].name.size() >= 1 && data.participants[0].name.size() <= 80 &&
+        data.participants[0].amount is number && data.participants[0].amount >= 0 &&
+        data.participants[0].settled is bool
+      )) &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidDebtRecord(data) {
+      return data.keys().hasAll([
+        'id', 'userId', 'personName', 'type', 'amount',
+        'description', 'dueDate', 'status', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id', 'userId', 'personName', 'type', 'amount',
+        'description', 'dueDate', 'status', 'createdAt', 'updatedAt'
+      ]) &&
+      isValidId(data.id) &&
+      isValidId(data.userId) &&
+      data.userId == request.auth.uid &&
+      data.personName is string && data.personName.size() >= 1 && data.personName.size() <= 100 &&
+      data.type is string && data.type.size() <= 16 && (data.type == 'you_owe' || data.type == 'owes_you') &&
+      data.amount is number && data.amount >= 0 && data.amount <= 100000000 &&
+      data.description is string && data.description.size() >= 1 && data.description.size() <= 200 &&
+      data.dueDate is string && data.dueDate.size() <= 32 &&
+      data.status is string && data.status.size() <= 16 && (data.status == 'pending' || data.status == 'settled') &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    // 3. Collection Match Rules
+
+    // /users/{userId} — PII-isolated student profile
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && (existing().id == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (existing().id == request.auth.uid || isAdmin());
+
+      allow create: if isVerified() &&
+        isValidId(userId) &&
+        userId == request.auth.uid &&
+        isValidUserProfile(incoming()) &&
+        incoming().id == request.auth.uid &&
+        incoming().status == 'active' &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isVerified() &&
+        isValidId(userId) &&
+        isValidUserProfile(incoming()) &&
+        incoming().id == existing().id &&
+        incoming().email == existing().email &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          // Action 1: Owner updates their own profile settings while account is active
+          (
+            existing().id == request.auth.uid &&
+            existing().status == 'active' &&
+            incoming().status == existing().status &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'name', 'currency', 'theme', 'monthlyBudget',
+              'semesterBudget', 'semesterEndDate', 'collegeName',
+              'degreeSemester', 'updatedAt'
+            ])
+          ) ||
+          // Action 2: Platform Admin suspends/reactivates or updates user status
+          (
+            isAdmin() &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'status', 'name', 'collegeName', 'degreeSemester',
+              'monthlyBudget', 'semesterBudget', 'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if isVerified() && isValidId(userId) && (existing().id == request.auth.uid || isAdmin());
+    }
+
+    // /admins/{adminId} — Server/Owner controlled administrator registry
+    match /admins/{adminId} {
+      allow get: if isSignedIn() && isValidId(adminId) && (request.auth.uid == adminId || isAdmin());
+      allow list: if isSignedIn() && (existing().uid == request.auth.uid || isAdmin());
+
+      allow create: if isVerified() &&
+        isValidId(adminId) &&
+        isValidAdminRecord(incoming()) &&
+        incoming().uid == adminId &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isAdmin() &&
+        exists(/databases/$(database)/documents/users/$(adminId));
+
+      allow update: if isVerified() &&
+        isValidId(adminId) &&
+        isValidAdminRecord(incoming()) &&
+        incoming().uid == existing().uid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        isAdmin() &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['role', 'grantedBy', 'updatedAt']);
+
+      allow delete: if isVerified() && isValidId(adminId) && isAdmin();
+    }
+
+    // /categories/{categoryId} — User-owned custom categories
+    match /categories/{categoryId} {
+      allow get: if isSignedIn() && isValidId(categoryId) && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+
+      allow create: if isVerified() &&
+        isValidId(categoryId) &&
+        isValidCategory(incoming()) &&
+        incoming().id == categoryId &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/users/$(incoming().userId));
+
+      allow update: if isVerified() &&
+        isValidId(categoryId) &&
+        isValidCategory(incoming()) &&
+        existing().userId == request.auth.uid &&
+        incoming().id == existing().id &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'kind', 'color', 'icon', 'isEssential', 'updatedAt']);
+
+      allow delete: if isVerified() && isValidId(categoryId) && existing().userId == request.auth.uid;
+    }
+
+    // /transactions/{transactionId} — Strict private user ledger
+    match /transactions/{transactionId} {
+      allow get: if isSignedIn() && isValidId(transactionId) && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+
+      allow create: if isVerified() &&
+        isValidId(transactionId) &&
+        isValidTransaction(incoming()) &&
+        incoming().id == transactionId &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/users/$(incoming().userId));
+
+      allow update: if isVerified() &&
+        isValidId(transactionId) &&
+        isValidTransaction(incoming()) &&
+        existing().userId == request.auth.uid &&
+        incoming().id == existing().id &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'amount', 'kind', 'categoryId', 'categoryName',
+          'description', 'merchant', 'date', 'paymentMethod',
+          'account', 'notes', 'updatedAt'
+        ]);
+
+      allow delete: if isVerified() && isValidId(transactionId) && existing().userId == request.auth.uid;
+    }
+
+    // /budgets/{budgetId} — User-owned monthly category budgets
+    match /budgets/{budgetId} {
+      allow get: if isSignedIn() && isValidId(budgetId) && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+
+      allow create: if isVerified() &&
+        isValidId(budgetId) &&
+        isValidBudget(incoming()) &&
+        incoming().id == budgetId &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/users/$(incoming().userId));
+
+      allow update: if isVerified() &&
+        isValidId(budgetId) &&
+        isValidBudget(incoming()) &&
+        existing().userId == request.auth.uid &&
+        incoming().id == existing().id &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['amount', 'warningThreshold', 'updatedAt']);
+
+      allow delete: if isVerified() && isValidId(budgetId) && existing().userId == request.auth.uid;
+    }
+
+    // /savingsGoals/{goalId} — User-owned savings goals
+    match /savingsGoals/{goalId} {
+      allow get: if isSignedIn() && isValidId(goalId) && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+
+      allow create: if isVerified() &&
+        isValidId(goalId) &&
+        isValidSavingsGoal(incoming()) &&
+        incoming().id == goalId &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/users/$(incoming().userId));
+
+      allow update: if isVerified() &&
+        isValidId(goalId) &&
+        isValidSavingsGoal(incoming()) &&
+        existing().userId == request.auth.uid &&
+        incoming().id == existing().id &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (existing().status != 'completed' || isAdmin()) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['title', 'targetAmount', 'currentAmount', 'targetDate', 'status', 'updatedAt']);
+
+      allow delete: if isVerified() && isValidId(goalId) && existing().userId == request.auth.uid;
+    }
+
+    // /recurringPayments/{recurringId} — User-owned recurring commitments
+    match /recurringPayments/{recurringId} {
+      allow get: if isSignedIn() && isValidId(recurringId) && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+
+      allow create: if isVerified() &&
+        isValidId(recurringId) &&
+        isValidRecurringPayment(incoming()) &&
+        incoming().id == recurringId &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/users/$(incoming().userId));
+
+      allow update: if isVerified() &&
+        isValidId(recurringId) &&
+        isValidRecurringPayment(incoming()) &&
+        existing().userId == request.auth.uid &&
+        incoming().id == existing().id &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (existing().status != 'cancelled' || isAdmin()) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['title', 'amount', 'nextDueDate', 'status', 'autoLog', 'notes', 'updatedAt']);
+
+      allow delete: if isVerified() && isValidId(recurringId) && existing().userId == request.auth.uid;
+    }
+
+    // /splitExpenses/{splitId} — User-owned shared peer splits
+    match /splitExpenses/{splitId} {
+      allow get: if isSignedIn() && isValidId(splitId) && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+
+      allow create: if isVerified() &&
+        isValidId(splitId) &&
+        isValidSplitExpense(incoming()) &&
+        incoming().id == splitId &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/users/$(incoming().userId));
+
+      allow update: if isVerified() &&
+        isValidId(splitId) &&
+        isValidSplitExpense(incoming()) &&
+        existing().userId == request.auth.uid &&
+        incoming().id == existing().id &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (existing().status != 'settled' || isAdmin()) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'participants', 'updatedAt']);
+
+      allow delete: if isVerified() && isValidId(splitId) && existing().userId == request.auth.uid;
+    }
+
+    // /debts/{debtId} — User-owned peer IOU records
+    match /debts/{debtId} {
+      allow get: if isSignedIn() && isValidId(debtId) && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+
+      allow create: if isVerified() &&
+        isValidId(debtId) &&
+        isValidDebtRecord(incoming()) &&
+        incoming().id == debtId &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/users/$(incoming().userId));
+
+      allow update: if isVerified() &&
+        isValidId(debtId) &&
+        isValidDebtRecord(incoming()) &&
+        existing().userId == request.auth.uid &&
+        incoming().id == existing().id &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (existing().status != 'settled' || isAdmin()) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'amount', 'description', 'dueDate', 'updatedAt']);
+
+      allow delete: if isVerified() && isValidId(debtId) && existing().userId == request.auth.uid;
+    }
+  }
+}

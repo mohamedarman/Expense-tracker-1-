@@ -8,6 +8,7 @@ import {
   TrendingUp,
   Settings,
   MessageSquare,
+  ShieldCheck,
 } from 'lucide-react';
 import { User } from '../types.ts';
 
@@ -18,7 +19,8 @@ export type NavTab =
   | 'student_hub'
   | 'subscriptions'
   | 'analytics'
-  | 'settings';
+  | 'settings'
+  | 'admin';
 
 interface SidebarProps {
   currentTab: NavTab;
@@ -38,15 +40,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCloseMobile,
   onOpenAI,
 }) => {
-  const navItems = [
-    { id: 'dashboard' as NavTab, label: 'Overview', icon: LayoutDashboard },
-    { id: 'transactions' as NavTab, label: 'Transactions', icon: Receipt },
-    { id: 'budgets' as NavTab, label: 'Budgets and goals', icon: Target },
-    { id: 'student_hub' as NavTab, label: 'Campus hub', icon: GraduationCap },
-    { id: 'subscriptions' as NavTab, label: 'Recurring bills', icon: CalendarClock },
-    { id: 'analytics' as NavTab, label: 'Spending analysis', icon: TrendingUp },
-    { id: 'settings' as NavTab, label: 'Reports and settings', icon: Settings },
+  const navItems: { id: NavTab; label: string; icon: React.ComponentType<any> }[] = [
+    { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
+    { id: 'transactions', label: 'Transactions', icon: Receipt },
+    { id: 'budgets', label: 'Budgets and goals', icon: Target },
+    { id: 'student_hub', label: 'Campus hub', icon: GraduationCap },
+    { id: 'subscriptions', label: 'Recurring bills', icon: CalendarClock },
+    { id: 'analytics', label: 'Spending analysis', icon: TrendingUp },
+    { id: 'settings', label: 'Reports and settings', icon: Settings },
   ];
+
+  if (user.isAdmin) {
+    navItems.push({ id: 'admin', label: 'Admin console', icon: ShieldCheck });
+  }
 
   const handleNavClick = (tab: NavTab) => {
     onSelectTab(tab);
@@ -74,7 +80,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {user.name.slice(0, 2).toUpperCase()}
             </div>
             <div className="overflow-hidden flex-1">
-              <div className="text-[13px] font-medium text-ink-primary truncate">{user.name}</div>
+              <div className="flex items-center gap-1.5">
+                <div className="text-[13px] font-medium text-ink-primary truncate">{user.name}</div>
+                {user.isAdmin && (
+                  <span className="text-[10px] font-mono text-[#2dd4bf] shrink-0">
+                    {user.role === 'owner' ? 'OWNER' : 'ADMIN'}
+                  </span>
+                )}
+              </div>
               <div className="text-[12px] text-ink-muted truncate">
                 {user.degreeSemester || 'Student account'}
               </div>
@@ -102,7 +115,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   >
                     <span className="w-4 h-4 flex items-center justify-center shrink-0">
                       <Icon
-                        className={`w-4 h-4 ${isActive ? 'text-ink-primary' : 'text-ink-muted'}`}
+                        className={`w-4 h-4 ${
+                          item.id === 'admin'
+                            ? 'text-[#2dd4bf]'
+                            : isActive
+                            ? 'text-ink-primary'
+                            : 'text-ink-muted'
+                        }`}
                         strokeWidth={1.5}
                       />
                     </span>

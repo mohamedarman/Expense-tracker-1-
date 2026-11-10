@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
 import { Navbar } from './components/Navbar.tsx';
 import { Sidebar, NavTab } from './components/Sidebar.tsx';
 import { DashboardView } from './components/DashboardView.tsx';
@@ -13,6 +14,7 @@ import { StudentHubView } from './components/StudentHubView.tsx';
 import { SubscriptionsView } from './components/SubscriptionsView.tsx';
 import { AnalyticsView } from './components/AnalyticsView.tsx';
 import { SettingsReportsView } from './components/SettingsReportsView.tsx';
+import { AdminConsoleView } from './components/AdminConsoleView.tsx';
 import { AssistantModal } from './components/AssistantModal.tsx';
 import { TransactionFormModal } from './components/TransactionFormModal.tsx';
 import { AuthModal } from './components/AuthModal.tsx';
@@ -29,7 +31,8 @@ import {
   FinancialInsight,
   TransactionKind,
 } from './types.ts';
-import { api, getStoredToken, clearStoredToken } from './api.ts';
+import { api, clearLegacyLocalStorage, ensureUserProfileInFirestore } from './api.ts';
+import { auth } from './firebase.ts';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -37,6 +40,7 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState<NavTab>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [currency, setCurrency] = useState('₹');
+  const [verificationMsg, setVerificationMsg] = useState<string | null>(null);
 
   // Resource states
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -55,37 +59,56 @@ export default function App() {
   const [txToEdit, setTxToEdit] = useState<Transaction | null>(null);
   const [showAIModal, setShowAIModal] = useState(false);
 
-  // Load active session
+  const clearUserDataState = useCallback(() => {
+    setTransactions([]);
+    setCategories([]);
+    setBudgets(null);
+    setGoals([]);
+    setRecurring([]);
+    setSplits([]);
+    setDebts([]);
+    setAnalytics(null);
+    setInsights([]);
+  }, []);
+
+  // Subscribe to Firebase Authentication state changes
   useEffect(() => {
     document.documentElement.classList.add('dark');
-    const token = getStoredToken();
-    if (!token) {
-      setLoadingAuth(false);
-      return;
-    }
-    api
-      .getMe()
-      .then((res) => {
-        setUser(res.user);
-        setCurrency(res.user.currency || '₹');
-        if (res.user.theme === 'light') {
+    clearLegacyLocalStorage();
+
+    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      if (!fbUser) {
+        setUser(null);
+        clearUserDataState();
+        setCurrentTab('dashboard');
+        setLoadingAuth(false);
+        return;
+      }
+
+      try {
+        const profile = await ensureUserProfileInFirestore(fbUser);
+        setUser(profile);
+        setCurrency(profile.currency || '₹');
+        if (profile.theme === 'light') {
           document.documentElement.classList.remove('dark');
         } else {
           document.documentElement.classList.add('dark');
         }
-      })
-      .catch(() => {
-        clearStoredToken();
+      } catch (err) {
+        console.error('Error loading authenticated user profile:', err);
         setUser(null);
-      })
-      .finally(() => {
+        clearUserDataState();
+      } finally {
         setLoadingAuth(false);
-      });
-  }, []);
+      }
+    });
 
-  // Fetch all applet data
+    return () => unsubscribe();
+  }, [clearUserDataState]);
+
+  // Fetch all user-scoped Firestore data
   const refreshAllData = useCallback(async () => {
-    if (!user) return;
+    if (!user || user.emailVerified === false || user.status === 'suspended') return;
     try {
       const [
         txRes,
@@ -123,31 +146,24 @@ export default function App() {
     }
   }, [user]);
 
-  const clearUserDataState = useCallback(() => {
-    setTransactions([]);
-    setCategories([]);
-    setBudgets(null);
-    setGoals([]);
-    setRecurring([]);
-    setSplits([]);
-    setDebts([]);
-    setAnalytics(null);
-    setInsights([]);
-  }, []);
-
   useEffect(() => {
-    if (user) {
+    if (user && user.emailVerified !== false && user.status !== 'suspended') {
       clearUserDataState();
       refreshAllData();
     } else {
       clearUserDataState();
     }
-  }, [user?.id, refreshAllData, clearUserDataState]);
+  }, [user?.id, user?.emailVerified, user?.status, refreshAllData, clearUserDataState]);
 
-  const handleLogout = () => {
-    clearStoredToken();
-    setUser(null);
+  const handleLogout = async () => {
     clearUserDataState();
+    setUser(null);
+    setCurrentTab('dashboard');
+    try {
+      await api.logout();
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
   };
 
   const handleToggleTheme = () => {
@@ -200,10 +216,107 @@ export default function App() {
   }
 
   if (!user) {
-    return <AuthModal onSuccess={(u) => setUser(u)} />;
+    return (
+      <AuthModal
+        onSuccess={(u) => {
+          clearUserDataState();
+          setUser(u);
+          setCurrency(u.currency || '₹');
+        }}
+      />
+    );
   }
 
-  const healthScore = analytics?.currentMonth.healthScore ?? 85;
+  // Handle suspended accounts
+  if (user.status === 'suspended') {
+    return (
+      <div className="min-h-screen surface-page text-ink-primary flex items-center justify-center p-6 font-sans">
+        <div className="max-w-md w-full p-6 rounded-xl surface-card space-y-4 text-[13px]">
+          <div className="text-[12px] font-mono text-negative">Account status: Suspended</div>
+          <h1 className="text-[20px] font-medium text-ink-primary">
+            Your CostCurve account has been suspended
+          </h1>
+          <p className="text-ink-secondary leading-relaxed">
+            Access to your workspace has been restricted by the platform administrator. If you believe this is an error, please contact the platform owner.
+          </p>
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="h-9 px-4 btn-secondary rounded-lg text-[13px]"
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle unverified email/password accounts before writing to Firestore
+  if (user.emailVerified === false) {
+    return (
+      <div className="min-h-screen surface-page text-ink-primary flex items-center justify-center p-6 font-sans">
+        <div className="max-w-md w-full p-6 rounded-xl surface-card space-y-4 text-[13px]">
+          <div className="text-[12px] font-mono text-[#2dd4bf]">Email verification required</div>
+          <h1 className="text-[20px] font-medium text-ink-primary">
+            Verify your email address
+          </h1>
+          <p className="text-ink-secondary leading-relaxed">
+            To protect your financial ledger under CostCurve&apos;s security rules, please click the verification link sent to <span className="text-ink-primary font-mono">{user.email}</span>, or sign in with Google for instant verification.
+          </p>
+          {verificationMsg && (
+            <div className="p-3 rounded-lg surface-raised text-ink-primary text-[12px]">
+              {verificationMsg}
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-2.5 pt-2">
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const res = await api.reloadAndVerifyEmail();
+                  if (res.emailVerified) {
+                    setUser(res.user);
+                  } else {
+                    setVerificationMsg('Email is not verified yet. Please check your inbox and spam folder.');
+                  }
+                } catch (err: any) {
+                  setVerificationMsg(err.message || 'Verification check failed.');
+                }
+              }}
+              className="h-9 px-4 btn-primary rounded-lg text-[13px] font-medium"
+            >
+              I&apos;ve verified my email
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const res = await api.resendVerificationEmail();
+                  setVerificationMsg(res.message);
+                } catch (err: any) {
+                  setVerificationMsg(err.message || 'Could not resend verification email.');
+                }
+              }}
+              className="h-9 px-3.5 btn-secondary rounded-lg text-[13px]"
+            >
+              Resend link
+            </button>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="h-9 px-3.5 btn-secondary rounded-lg text-[13px]"
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const healthScore = analytics?.currentMonth.healthScore ?? 100;
 
   return (
     <div className="min-h-screen w-full max-w-full surface-page text-ink-primary flex flex-col font-sans">
@@ -292,7 +405,7 @@ export default function App() {
               categories={categories}
               onRefresh={refreshAllData}
               onLogRecurring={handleLogRecurring}
-            />
+              />
           )}
 
           {currentTab === 'analytics' && (
@@ -318,6 +431,10 @@ export default function App() {
               onRefreshAll={refreshAllData}
               onLogout={handleLogout}
             />
+          )}
+
+          {currentTab === 'admin' && user.isAdmin && (
+            <AdminConsoleView currentUser={user} currency={currency} />
           )}
         </main>
       </div>

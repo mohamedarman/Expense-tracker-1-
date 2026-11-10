@@ -5,6 +5,8 @@ export type BudgetPeriod = 'monthly' | 'semester' | 'weekly';
 export type RecurringFrequency = 'daily' | 'weekly' | 'monthly' | 'semester' | 'yearly';
 export type DebtType = 'you_owe' | 'owes_you';
 export type GoalStatus = 'in_progress' | 'completed';
+export type AccountStatus = 'active' | 'suspended';
+export type UserRole = 'owner' | 'admin' | 'user';
 
 export interface User {
   id: string;
@@ -17,7 +19,21 @@ export interface User {
   semesterEndDate: string;
   collegeName?: string;
   degreeSemester?: string;
+  status?: AccountStatus;
+  role?: UserRole;
+  isAdmin?: boolean;
+  emailVerified?: boolean;
   createdAt: string;
+  updatedAt?: string;
+}
+
+export interface AdminRecord {
+  uid: string;
+  email: string;
+  grantedBy: string;
+  role: 'admin' | 'owner';
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Category {
@@ -28,6 +44,8 @@ export interface Category {
   color: string;
   icon: string;
   isEssential: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Transaction {
@@ -58,6 +76,8 @@ export interface Budget {
   month: string;
   amount: number;
   warningThreshold: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CategoryBudgetDetail extends Budget {
@@ -93,6 +113,7 @@ export interface SavingsGoal {
   icon: string;
   status: GoalStatus;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface RecurringPayment {
@@ -108,6 +129,8 @@ export interface RecurringPayment {
   status: 'active' | 'paused' | 'cancelled';
   autoLog: boolean;
   notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface SplitParticipant {
@@ -126,6 +149,8 @@ export interface SplitExpense {
   paidBy: string;
   status: 'pending' | 'settled';
   participants: SplitParticipant[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface DebtRecord {
@@ -138,6 +163,7 @@ export interface DebtRecord {
   dueDate: string;
   status: 'pending' | 'settled';
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface AnalyticsResponse {

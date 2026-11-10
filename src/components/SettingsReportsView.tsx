@@ -119,8 +119,12 @@ export const SettingsReportsView: React.FC<SettingsReportsViewProps> = ({
     }
   };
 
-  const handleExportJson = () => {
-    window.location.href = '/api/auth/export';
+  const handleExportJson = async () => {
+    try {
+      await api.exportUserDataArchive();
+    } catch (err: any) {
+      alert(err.message || 'Export failed');
+    }
   };
 
   const handleDeleteAccount = async () => {

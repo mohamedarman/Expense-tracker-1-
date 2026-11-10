@@ -1,0 +1,687 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated student profile and allowance configuration.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the user."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Display name of the student."
+        },
+        "email": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 254,
+          "description": "Verified email address of the student."
+        },
+        "currency": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10,
+          "description": "Active currency symbol."
+        },
+        "theme": {
+          "type": "string",
+          "enum": ["dark", "light"],
+          "description": "UI theme preference."
+        },
+        "monthlyBudget": {
+          "type": "number",
+          "description": "Baseline monthly allowance target."
+        },
+        "semesterBudget": {
+          "type": "number",
+          "description": "Baseline semester allowance target."
+        },
+        "semesterEndDate": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "ISO date string for semester end."
+        },
+        "collegeName": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 120,
+          "description": "Name of college or university."
+        },
+        "degreeSemester": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 120,
+          "description": "Current degree and semester label."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "suspended"],
+          "description": "Account lifecycle status controlled by platform admins."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of creation."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last update."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email",
+        "currency",
+        "theme",
+        "monthlyBudget",
+        "semesterBudget",
+        "semesterEndDate",
+        "collegeName",
+        "degreeSemester",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AdminRecord": {
+      "title": "AdminRecord",
+      "description": "Server/owner-controlled registry of authorized platform administrators.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the administrator."
+        },
+        "email": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 254,
+          "description": "Email address of the administrator."
+        },
+        "grantedBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the owner/admin who granted access."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin", "owner"],
+          "description": "Administrative privilege level."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when admin access was granted."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last update."
+        }
+      },
+      "required": [
+        "uid",
+        "email",
+        "grantedBy",
+        "role",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "User-owned custom transaction category.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["expense", "income"]
+        },
+        "color": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "icon": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "isEssential": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "name",
+        "kind",
+        "color",
+        "icon",
+        "isEssential",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "User-owned income or expense ledger entry.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "amount": {
+          "type": "number"
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["expense", "income"]
+        },
+        "categoryId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "categoryName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "merchant": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 120
+        },
+        "date": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 32
+        },
+        "paymentMethod": {
+          "type": "string",
+          "enum": ["UPI", "Cash", "Card", "Net Banking", "Digital Wallet", "Other"]
+        },
+        "account": {
+          "type": "string",
+          "enum": ["Primary Bank", "Pocket Cash", "College ID / Campus Card", "Savings", "Digital Wallet"]
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 500
+        },
+        "recurringId": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "amount",
+        "kind",
+        "categoryId",
+        "categoryName",
+        "description",
+        "merchant",
+        "date",
+        "paymentMethod",
+        "account",
+        "notes",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Budget": {
+      "title": "Budget",
+      "description": "User-owned monthly category budget limit.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "categoryId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "period": {
+          "type": "string",
+          "enum": ["monthly", "semester", "weekly"]
+        },
+        "month": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 16
+        },
+        "amount": {
+          "type": "number"
+        },
+        "warningThreshold": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "categoryId",
+        "period",
+        "month",
+        "amount",
+        "warningThreshold",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "SavingsGoal": {
+      "title": "SavingsGoal",
+      "description": "User-owned savings target vault.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "targetAmount": {
+          "type": "number"
+        },
+        "currentAmount": {
+          "type": "number"
+        },
+        "targetDate": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 32
+        },
+        "category": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "icon": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "status": {
+          "type": "string",
+          "enum": ["in_progress", "completed"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "title",
+        "targetAmount",
+        "currentAmount",
+        "targetDate",
+        "category",
+        "icon",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "RecurringPayment": {
+      "title": "RecurringPayment",
+      "description": "User-owned recurring bill or subscription commitment.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "amount": {
+          "type": "number"
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["expense", "income"]
+        },
+        "categoryId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "frequency": {
+          "type": "string",
+          "enum": ["daily", "weekly", "monthly", "semester", "yearly"]
+        },
+        "nextDueDate": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 32
+        },
+        "paymentMethod": {
+          "type": "string",
+          "enum": ["UPI", "Cash", "Card", "Net Banking", "Digital Wallet", "Other"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "paused", "cancelled"]
+        },
+        "autoLog": {
+          "type": "boolean"
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 500
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "title",
+        "amount",
+        "kind",
+        "categoryId",
+        "frequency",
+        "nextDueDate",
+        "paymentMethod",
+        "status",
+        "autoLog",
+        "notes",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "SplitExpense": {
+      "title": "SplitExpense",
+      "description": "User-owned roommate or classmate shared bill split.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "totalAmount": {
+          "type": "number"
+        },
+        "userShare": {
+          "type": "number"
+        },
+        "date": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 32
+        },
+        "paidBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "settled"]
+        },
+        "participants": {
+          "type": "array"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "title",
+        "totalAmount",
+        "userShare",
+        "date",
+        "paidBy",
+        "status",
+        "participants",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "DebtRecord": {
+      "title": "DebtRecord",
+      "description": "User-owned peer IOU or debt record.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "personName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "type": {
+          "type": "string",
+          "enum": ["you_owe", "owes_you"]
+        },
+        "amount": {
+          "type": "number"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "dueDate": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 32
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "settled"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "personName",
+        "type",
+        "amount",
+        "description",
+        "dueDate",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile documents indexed by Firebase Auth UID."
+    },
+    "/admins/{adminId}": {
+      "schema": "AdminRecord",
+      "description": "Protected administrator registry indexed by Firebase Auth UID."
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "User-owned custom spending and income categories."
+    },
+    "/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "User-owned financial transactions."
+    },
+    "/budgets/{budgetId}": {
+      "schema": "Budget",
+      "description": "User-owned category budget limits."
+    },
+    "/savingsGoals/{goalId}": {
+      "schema": "SavingsGoal",
+      "description": "User-owned savings targets."
+    },
+    "/recurringPayments/{recurringId}": {
+      "schema": "RecurringPayment",
+      "description": "User-owned recurring commitments and subscriptions."
+    },
+    "/splitExpenses/{splitId}": {
+      "schema": "SplitExpense",
+      "description": "User-owned shared peer expense splits."
+    },
+    "/debts/{debtId}": {
+      "schema": "DebtRecord",
+      "description": "User-owned peer debt and IOU records."
+    }
+  }
+}

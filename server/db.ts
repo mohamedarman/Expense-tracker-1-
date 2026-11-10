@@ -65,9 +65,6 @@ class Database {
 
   constructor() {
     this.data = this.load();
-    if (this.data.users.length === 0) {
-      this.seedInitialDemoData();
-    }
   }
 
   private load(): DatabaseSchema {
