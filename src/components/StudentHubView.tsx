@@ -1,15 +1,8 @@
 import React, { useState } from 'react';
 import {
-  GraduationCap,
-  Users,
-  HandCoins,
-  Calculator,
   Plus,
   CheckCircle2,
-  Clock,
   Trash2,
-  ArrowRight,
-  AlertCircle,
   X,
 } from 'lucide-react';
 import { User, SplitExpense, DebtRecord, AnalyticsResponse } from '../types.ts';
@@ -25,23 +18,19 @@ interface StudentHubViewProps {
 }
 
 export const StudentHubView: React.FC<StudentHubViewProps> = ({
-  user,
   currency,
   splits,
   debts,
   analytics,
   onRefresh,
 }) => {
-  // Simulator state
   const [testSpend, setTestSpend] = useState<string>('800');
 
-  // Split bill modal
   const [showSplitModal, setShowSplitModal] = useState(false);
   const [splitTitle, setSplitTitle] = useState('');
   const [splitTotal, setSplitTotal] = useState('');
   const [participantsText, setParticipantsText] = useState('Rahul, Rohan, Me');
 
-  // Debt modal
   const [showDebtModal, setShowDebtModal] = useState(false);
   const [debtName, setDebtName] = useState('');
   const [debtType, setDebtType] = useState<'you_owe' | 'owes_you'>('owes_you');
@@ -50,24 +39,28 @@ export const StudentHubView: React.FC<StudentHubViewProps> = ({
   const [debtDueDate, setDebtDueDate] = useState('');
 
   const currentMonth = analytics?.currentMonth;
-  const remBudget = currentMonth?.remainingBudget ?? 8000;
+  const remBudget = Math.round(currentMonth?.remainingBudget ?? 8000);
   const daysLeft = currentMonth?.daysLeftInMonth ?? 15;
-  const currentDailyRate = currentMonth?.safeDailySpend ?? Math.round(remBudget / daysLeft);
+  const currentDailyRate = Math.round(
+    currentMonth?.safeDailySpend ?? Math.round(remBudget / daysLeft)
+  );
 
-  // Simulation calculation
   const plannedNum = parseFloat(testSpend) || 0;
   const simulatedRemaining = Math.max(0, remBudget - plannedNum);
   const simulatedDailyRate = daysLeft > 1 ? Math.round(simulatedRemaining / (daysLeft - 1)) : 0;
   const delta = simulatedDailyRate - currentDailyRate;
 
-  // Split calculations
-  const totalYouAreOwed = debts
-    .filter((d) => d.type === 'owes_you' && d.status === 'pending')
-    .reduce((sum, d) => sum + d.amount, 0);
+  const totalYouAreOwed = Math.round(
+    debts
+      .filter((d) => d.type === 'owes_you' && d.status === 'pending')
+      .reduce((sum, d) => sum + d.amount, 0)
+  );
 
-  const totalYouOwe = debts
-    .filter((d) => d.type === 'you_owe' && d.status === 'pending')
-    .reduce((sum, d) => sum + d.amount, 0);
+  const totalYouOwe = Math.round(
+    debts
+      .filter((d) => d.type === 'you_owe' && d.status === 'pending')
+      .reduce((sum, d) => sum + d.amount, 0)
+  );
 
   const handleCreateSplit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -147,7 +140,9 @@ export const StudentHubView: React.FC<StudentHubViewProps> = ({
         type: debtType,
         amount: amt,
         description: debtDesc.trim(),
-        dueDate: debtDueDate || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        dueDate:
+          debtDueDate ||
+          new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       });
       setShowDebtModal(false);
       setDebtName('');
@@ -181,131 +176,145 @@ export const StudentHubView: React.FC<StudentHubViewProps> = ({
   };
 
   return (
-    <div className="space-y-8 pb-12">
+    <div className="space-y-8 pb-12 font-sans w-full min-w-0">
       {/* Header */}
-      <div>
-        <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-          <GraduationCap className="w-5 h-5 text-teal-400" /> Student Financial Hub
+      <div className="space-y-1 min-w-0">
+        <div className="text-[12px] font-mono text-ink-muted">
+          Shared expenses and allowance simulation
+        </div>
+        <h1 className="text-[24px] sm:text-[28px] font-medium text-ink-primary tracking-tight leading-tight">
+          Campus hub
         </h1>
-        <p className="text-xs text-slate-400">
-          Smart tools built specifically for campus living: daily velocity simulation, roommate bill splitting, and peer IOUs
-        </p>
       </div>
 
-      {/* Daily Velocity Simulator */}
-      <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
-        <div className="flex items-center gap-2">
-          <Calculator className="w-4 h-4 text-teal-400" />
-          <h2 className="text-sm font-bold text-white">Interactive Daily Allowance Simulator</h2>
+      {/* Daily Allowance Impact Simulator */}
+      <div className="p-4 sm:p-6 rounded-xl surface-card space-y-5 min-w-0">
+        <div className="space-y-1 min-w-0">
+          <h2 className="text-[15px] font-medium text-ink-primary">
+            Daily allowance impact simulator
+          </h2>
+          <p className="text-[13px] text-ink-secondary">
+            Test how a planned purchase today changes your daily safe-to-spend rate for the rest of the month
+          </p>
         </div>
-        <p className="text-xs text-slate-300">
-          Planning an outing, textbook purchase, or weekend trip? Test how spending today impacts your daily safe budget for the rest of the month:
-        </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-          <div className="space-y-1.5">
-            <label className="text-xs text-slate-400">If I spend this amount today:</label>
-            <div className="relative">
-              <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-mono">{currency}</span>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-1 min-w-0">
+          <div className="space-y-1.5 min-w-0">
+            <label className="text-[12px] text-ink-muted block">Planned spend today</label>
+            <div className="relative min-w-0">
+              <span className="absolute left-3 top-2 text-[13px] text-ink-muted font-mono">
+                {currency}
+              </span>
               <input
                 type="number"
                 value={testSpend}
                 onChange={(e) => setTestSpend(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700/80 rounded-xl pl-8 pr-3 py-2 text-sm font-mono text-white focus:outline-none focus:border-teal-400"
+                className="w-full min-w-0 h-9 input-field rounded-lg pl-8 pr-3 text-[14px] font-mono tabular-nums"
               />
             </div>
           </div>
 
-          <div className="p-3 bg-slate-800/60 rounded-xl border border-slate-700/60 space-y-1">
-            <div className="text-[11px] text-slate-400">Current Daily Allowance</div>
-            <div className="text-lg font-bold text-slate-200">
-              {currency}{currentDailyRate.toLocaleString()} <span className="text-xs font-normal text-slate-400">/ day</span>
+          <div className="space-y-1 md:border-l hairline-border md:pl-6 min-w-0">
+            <div className="text-[12px] text-ink-muted">Current daily rate</div>
+            <div className="text-[22px] sm:text-[24px] font-medium text-ink-primary font-mono tabular-nums leading-none break-words">
+              {currency}{currentDailyRate.toLocaleString()}{' '}
+              <span className="text-[13px] font-normal text-ink-muted">/ day</span>
             </div>
-            <div className="text-[10px] text-slate-500">{daysLeft} days remaining</div>
+            <div className="text-[12px] text-ink-muted font-mono">{daysLeft} days left</div>
           </div>
 
-          <div className="p-3 bg-teal-950/40 rounded-xl border border-teal-500/40 space-y-1">
-            <div className="text-[11px] text-teal-300">Simulated New Daily Allowance</div>
-            <div className="text-lg font-bold text-teal-300">
-              {currency}{simulatedDailyRate.toLocaleString()} <span className="text-xs font-normal text-teal-400">/ day</span>
+          <div className="space-y-1 md:border-l hairline-border md:pl-6 min-w-0">
+            <div className="text-[12px] text-ink-muted">Adjusted daily rate from tomorrow</div>
+            <div className="text-[22px] sm:text-[24px] font-medium text-accent font-mono tabular-nums leading-none break-words">
+              {currency}{simulatedDailyRate.toLocaleString()}{' '}
+              <span className="text-[13px] font-normal text-ink-secondary">/ day</span>
             </div>
-            <div className={`text-[10px] font-semibold ${delta < 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
-              {delta < 0 ? `Reduction of ${currency}${Math.abs(delta)}/day` : 'No reduction'}
+            <div className="text-[12px] font-mono text-ink-secondary tabular-nums break-words">
+              {delta < 0
+                ? `${currency}${Math.abs(delta).toLocaleString()} lower per day vs current rate`
+                : 'No change vs current rate'}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Bill Splitting Section */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-bold text-white flex items-center gap-2">
-              <Users className="w-4 h-4 text-emerald-400" /> Roommate &amp; Group Bill Splitter
+      {/* Roommate & Group Bill Splitting */}
+      <div className="space-y-4 min-w-0">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="space-y-0.5 min-w-0">
+            <h2 className="text-[16px] font-medium text-ink-primary">
+              Roommate and group splits
             </h2>
-            <p className="text-xs text-slate-400">Split shared mess, WiFi broadband, flat groceries, and party expenses</p>
+            <p className="text-[13px] text-ink-secondary">
+              Divide shared broadband, flat groceries, and group meals
+            </p>
           </div>
           <button
+            type="button"
             onClick={() => setShowSplitModal(true)}
-            className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-semibold rounded-lg text-xs flex items-center gap-1.5 transition-colors shadow"
+            className="h-9 px-4 btn-primary rounded-lg text-[13px] font-medium flex items-center gap-2 whitespace-nowrap shrink-0"
           >
-            <Plus className="w-3.5 h-3.5" /> Split Bill
+            <Plus className="w-4 h-4 shrink-0" strokeWidth={1.75} />
+            <span>Split bill</span>
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
           {splits.length > 0 ? (
             splits.map((s) => (
               <div
                 key={s.id}
-                className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800/80 space-y-3 relative group"
+                className="p-4 sm:p-5 rounded-xl surface-card space-y-4 group min-w-0"
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-white">{s.title}</span>
-                  <div className="flex items-center gap-1.5">
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                      s.status === 'settled'
-                        ? 'bg-emerald-500/15 text-emerald-400'
-                        : 'bg-amber-500/15 text-amber-300'
-                    }`}>
-                      {s.status === 'settled' ? 'Fully Settled' : 'Pending Settlement'}
+                <div className="flex items-center justify-between gap-2 min-w-0">
+                  <span className="text-[14px] font-medium text-ink-primary truncate min-w-0">{s.title}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span
+                      className={`text-[12px] font-mono ${
+                        s.status === 'settled' ? 'text-positive' : 'text-ink-muted'
+                      }`}
+                    >
+                      {s.status === 'settled' ? 'Settled' : 'Pending'}
                     </span>
                     <button
+                      type="button"
                       onClick={() => handleDeleteSplit(s.id)}
-                      className="p-1 text-slate-500 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="p-1 text-ink-muted hover:text-negative opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
                     </button>
                   </div>
                 </div>
 
-                <div className="flex items-baseline justify-between text-xs">
-                  <span className="text-slate-400">Total Bill: <strong className="text-slate-200">{currency}{s.totalAmount}</strong></span>
-                  <span className="text-slate-400">Your Share: <strong className="text-emerald-400">{currency}{s.userShare}</strong></span>
+                <div className="flex flex-wrap items-baseline justify-between gap-2 text-[13px] font-mono tabular-nums">
+                  <span className="text-ink-secondary">
+                    Total: <span className="text-ink-primary">{currency}{Math.round(s.totalAmount).toLocaleString()}</span>
+                  </span>
+                  <span className="text-ink-secondary">
+                    Your share: <span className="text-ink-primary">{currency}{Math.round(s.userShare).toLocaleString()}</span>
+                  </span>
                 </div>
 
-                <div className="space-y-1.5 pt-2 border-t border-slate-800">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
-                    Participants
+                <div className="space-y-2 pt-3 border-t hairline-border min-w-0">
+                  <div className="text-[12px] text-ink-muted">
+                    Participants (click to toggle status)
                   </div>
-                  <div className="space-y-1">
+                  <div className="divide-y hairline-divide">
                     {s.participants.map((p, idx) => (
                       <div
                         key={idx}
                         onClick={() => handleToggleParticipantSettled(s, idx)}
-                        className="flex items-center justify-between p-1.5 rounded-lg bg-slate-950/60 hover:bg-slate-800/60 cursor-pointer text-xs transition-colors"
+                        className="py-2 px-2 flex items-center justify-between gap-2 rounded-md hover:bg-[var(--bg-raised)] cursor-pointer text-[13px] transition-colors min-w-0"
                       >
-                        <span className="text-slate-300 font-medium">{p.name}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-slate-400">{currency}{p.amount}</span>
+                        <span className="text-ink-primary truncate min-w-0">{p.name}</span>
+                        <div className="flex items-center gap-3 font-mono text-[12px] tabular-nums shrink-0">
+                          <span className="text-ink-secondary">{currency}{Math.round(p.amount).toLocaleString()}</span>
                           {p.settled ? (
-                            <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
-                              <CheckCircle2 className="w-3 h-3" /> Paid
+                            <span className="text-positive flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={1.5} /> Paid
                             </span>
                           ) : (
-                            <span className="text-[10px] text-amber-400 font-semibold">
-                              Pending
-                            </span>
+                            <span className="text-ink-muted">Unpaid</span>
                           )}
                         </div>
                       </div>
@@ -315,96 +324,100 @@ export const StudentHubView: React.FC<StudentHubViewProps> = ({
               </div>
             ))
           ) : (
-            <div className="col-span-full py-8 text-center text-xs text-slate-500 bg-slate-900/40 rounded-xl border border-slate-800/60">
-              No split bills yet. Click "+ Split Bill" to divide hostel broadband, groceries, or dinner.
+            <div className="col-span-full py-10 text-center text-[13px] text-ink-muted surface-card rounded-xl">
+              No shared bill splits recorded yet
             </div>
           )}
         </div>
       </div>
 
-      {/* Peer Debts & IOUs Section */}
-      <div className="space-y-4 pt-4 border-t border-slate-800/80">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-bold text-white flex items-center gap-2">
-              <HandCoins className="w-4 h-4 text-teal-400" /> Peer Debts &amp; IOUs
-            </h2>
-            <p className="text-xs text-slate-400">Keep track of money lent to classmates or borrowed for canteen chai</p>
+      {/* Peer Debts & IOUs */}
+      <div className="space-y-4 pt-4 border-t hairline-border min-w-0">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="space-y-0.5 min-w-0">
+            <h2 className="text-[16px] font-medium text-ink-primary">Peer balances and IOUs</h2>
+            <p className="text-[13px] text-ink-secondary">
+              Track money lent to classmates or borrowed on campus
+            </p>
           </div>
           <button
+            type="button"
             onClick={() => setShowDebtModal(true)}
-            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-teal-300 border border-slate-700/80 rounded-lg text-xs flex items-center gap-1.5 transition-colors"
+            className="h-9 px-3.5 btn-secondary rounded-lg text-[13px] font-normal flex items-center gap-2 whitespace-nowrap shrink-0"
           >
-            <Plus className="w-3.5 h-3.5" /> Record IOU
+            <Plus className="w-4 h-4 text-ink-muted shrink-0" strokeWidth={1.5} />
+            <span>Record IOU</span>
           </button>
         </div>
 
-        {/* Debt Summary Chips */}
-        <div className="grid grid-cols-2 gap-3 text-xs">
-          <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-between">
-            <span className="text-slate-400">Classmates owe you:</span>
-            <span className="text-base font-bold text-emerald-400 font-mono">+{currency}{totalYouAreOwed.toLocaleString()}</span>
+        {/* Unified 2-Column Balance Strip */}
+        <div className="rounded-xl surface-card grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x hairline-divide min-w-0">
+          <div className="p-4 flex items-center justify-between gap-2 min-w-0">
+            <span className="text-[13px] text-ink-secondary">Classmates owe you</span>
+            <span className="text-[18px] sm:text-[20px] font-medium text-positive font-mono tabular-nums shrink-0">
+              +{currency}{totalYouAreOwed.toLocaleString()}
+            </span>
           </div>
-          <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center justify-between">
-            <span className="text-slate-400">You owe others:</span>
-            <span className="text-base font-bold text-rose-400 font-mono">-{currency}{totalYouOwe.toLocaleString()}</span>
+          <div className="p-4 flex items-center justify-between gap-2 min-w-0">
+            <span className="text-[13px] text-ink-secondary">You owe others</span>
+            <span className="text-[18px] sm:text-[20px] font-medium text-negative font-mono tabular-nums shrink-0">
+              -{currency}{totalYouOwe.toLocaleString()}
+            </span>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 min-w-0">
           {debts.length > 0 ? (
             debts.map((d) => (
               <div
                 key={d.id}
-                className="p-4 rounded-xl bg-slate-900/80 border border-slate-800/80 space-y-2 relative group"
+                className="p-4 sm:p-5 rounded-xl surface-card space-y-3 group min-w-0"
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-200">{d.personName}</span>
-                  <span className={`text-[11px] font-semibold font-mono ${
-                    d.type === 'owes_you' ? 'text-emerald-400' : 'text-rose-400'
-                  }`}>
+                <div className="flex items-center justify-between gap-2 min-w-0">
+                  <span className="text-[14px] font-medium text-ink-primary truncate min-w-0">{d.personName}</span>
+                  <span className="text-[12px] font-mono text-ink-muted shrink-0">
                     {d.type === 'owes_you' ? 'Owes you' : 'You owe'}
                   </span>
                 </div>
 
-                <div className="flex items-baseline justify-between">
-                  <div className={`text-lg font-bold font-mono ${
-                    d.type === 'owes_you' ? 'text-emerald-400' : 'text-rose-400'
-                  }`}>
-                    {d.type === 'owes_you' ? '+' : '-'}{currency}{d.amount.toLocaleString()}
+                <div className="flex items-baseline justify-between gap-2 min-w-0">
+                  <div
+                    className={`text-[20px] font-medium font-mono tabular-nums break-words ${
+                      d.type === 'owes_you' ? 'text-positive' : 'text-negative'
+                    }`}
+                  >
+                    {d.type === 'owes_you' ? '+' : '-'}{currency}{Math.round(d.amount).toLocaleString()}
                   </div>
-                  <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                    <Clock className="w-3 h-3" /> Due {d.dueDate}
+                  <span className="text-[12px] text-ink-muted font-mono shrink-0">
+                    Due {d.dueDate}
                   </span>
                 </div>
 
                 {d.description && (
-                  <p className="text-[11px] text-slate-400 truncate">{d.description}</p>
+                  <p className="text-[12px] text-ink-secondary truncate">{d.description}</p>
                 )}
 
-                <div className="pt-2 flex items-center justify-between border-t border-slate-800/60">
+                <div className="pt-3 flex items-center justify-between border-t hairline-border">
                   <button
+                    type="button"
                     onClick={() => handleSettleDebt(d)}
-                    className={`px-2 py-1 rounded text-[11px] font-semibold transition-colors ${
-                      d.status === 'settled'
-                        ? 'bg-slate-800 text-slate-400'
-                        : 'bg-teal-500/15 text-teal-300 hover:bg-teal-500/25'
-                    }`}
+                    className="h-7 px-2.5 btn-secondary rounded-md text-[12px] font-normal"
                   >
-                    {d.status === 'settled' ? 'Settled' : 'Mark Settled'}
+                    {d.status === 'settled' ? 'Settled' : 'Mark settled'}
                   </button>
                   <button
+                    type="button"
                     onClick={() => handleDeleteDebt(d.id)}
-                    className="text-slate-500 hover:text-rose-400 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="text-ink-muted hover:text-negative p-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
                   </button>
                 </div>
               </div>
             ))
           ) : (
-            <div className="col-span-full py-8 text-center text-xs text-slate-500 bg-slate-900/40 rounded-xl border border-slate-800/60">
-              No debt or IOU records. All student balances are settled.
+            <div className="col-span-full py-10 text-center text-[13px] text-ink-muted surface-card rounded-xl">
+              No peer IOUs recorded
             </div>
           )}
         </div>
@@ -412,54 +425,58 @@ export const StudentHubView: React.FC<StudentHubViewProps> = ({
 
       {/* Split Bill Modal */}
       {showSplitModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <form onSubmit={handleCreateSplit} className="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-white">Split Shared Bill</h3>
-              <button type="button" onClick={() => setShowSplitModal(false)} className="text-slate-400 hover:text-white">
-                <X className="w-4 h-4" />
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <form
+            onSubmit={handleCreateSplit}
+            className="surface-card rounded-xl max-w-sm w-full max-h-[calc(100dvh-1.5rem)] overflow-y-auto p-5 space-y-4 min-w-0"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-[15px] font-medium text-ink-primary">Split shared bill</h3>
+              <button
+                type="button"
+                onClick={() => setShowSplitModal(false)}
+                className="text-ink-muted hover:text-ink-primary shrink-0"
+              >
+                <X className="w-4 h-4" strokeWidth={1.5} />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block text-slate-400 mb-1">Expense Title</label>
+            <div className="space-y-3 text-[13px]">
+              <div className="space-y-1.5">
+                <label className="block text-ink-secondary">Expense title</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. WiFi Bill, Mess Advance, Dinner"
+                  placeholder="WiFi bill, groceries, dinner"
                   value={splitTitle}
                   onChange={(e) => setSplitTitle(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200"
+                  className="w-full min-w-0 h-9 input-field rounded-lg px-3"
                 />
               </div>
 
-              <div>
-                <label className="block text-slate-400 mb-1">Total Bill Amount ({currency})</label>
+              <div className="space-y-1.5">
+                <label className="block text-ink-secondary">Total bill amount ({currency})</label>
                 <input
                   type="number"
                   step="0.01"
                   required
-                  placeholder="e.g. 1200"
+                  placeholder="1200"
                   value={splitTotal}
                   onChange={(e) => setSplitTotal(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 font-mono"
+                  className="w-full min-w-0 h-9 input-field rounded-lg px-3 font-mono tabular-nums"
                 />
               </div>
 
-              <div>
-                <label className="block text-slate-400 mb-1">Participants (comma separated)</label>
+              <div className="space-y-1.5">
+                <label className="block text-ink-secondary">Participants (comma separated)</label>
                 <input
                   type="text"
                   required
                   placeholder="Rahul, Rohan, Me"
                   value={participantsText}
                   onChange={(e) => setParticipantsText(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200"
+                  className="w-full min-w-0 h-9 input-field rounded-lg px-3"
                 />
-                <span className="text-[10px] text-slate-500">
-                  Equal share will be calculated for each person.
-                </span>
               </div>
             </div>
 
@@ -467,15 +484,15 @@ export const StudentHubView: React.FC<StudentHubViewProps> = ({
               <button
                 type="button"
                 onClick={() => setShowSplitModal(false)}
-                className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg text-xs"
+                className="h-8 px-3.5 btn-secondary rounded-lg text-[12px]"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-semibold rounded-lg text-xs"
+                className="h-8 px-4 btn-primary rounded-lg text-[12px] font-medium"
               >
-                Create Split
+                Create split
               </button>
             </div>
           </form>
@@ -484,84 +501,91 @@ export const StudentHubView: React.FC<StudentHubViewProps> = ({
 
       {/* Debt Modal */}
       {showDebtModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <form onSubmit={handleCreateDebt} className="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-white">Record Peer Debt / IOU</h3>
-              <button type="button" onClick={() => setShowDebtModal(false)} className="text-slate-400 hover:text-white">
-                <X className="w-4 h-4" />
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <form
+            onSubmit={handleCreateDebt}
+            className="surface-card rounded-xl max-w-sm w-full max-h-[calc(100dvh-1.5rem)] overflow-y-auto p-5 space-y-4 min-w-0"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-[15px] font-medium text-ink-primary">Record peer IOU</h3>
+              <button
+                type="button"
+                onClick={() => setShowDebtModal(false)}
+                className="text-ink-muted hover:text-ink-primary shrink-0"
+              >
+                <X className="w-4 h-4" strokeWidth={1.5} />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-3 text-[13px]">
+              <div className="grid grid-cols-2 p-1 surface-deep rounded-lg border hairline-border">
                 <button
                   type="button"
                   onClick={() => setDebtType('owes_you')}
-                  className={`py-2 rounded-lg font-medium transition-colors ${
+                  className={`h-8 rounded-md text-[12px] transition-colors ${
                     debtType === 'owes_you'
-                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                      : 'bg-slate-950 text-slate-400 border border-slate-800'
+                      ? 'surface-active-row text-ink-primary font-medium'
+                      : 'text-ink-muted hover:text-ink-primary'
                   }`}
                 >
-                  They Owe Me
+                  They owe me
                 </button>
                 <button
                   type="button"
                   onClick={() => setDebtType('you_owe')}
-                  className={`py-2 rounded-lg font-medium transition-colors ${
+                  className={`h-8 rounded-md text-[12px] transition-colors ${
                     debtType === 'you_owe'
-                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                      : 'bg-slate-950 text-slate-400 border border-slate-800'
+                      ? 'surface-active-row text-ink-primary font-medium'
+                      : 'text-ink-muted hover:text-ink-primary'
                   }`}
                 >
-                  I Owe Them
+                  I owe them
                 </button>
               </div>
 
-              <div>
-                <label className="block text-slate-400 mb-1">Friend / Person Name</label>
+              <div className="space-y-1.5">
+                <label className="block text-ink-secondary">Person name</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Karthik, Room 304, Canteen"
+                  placeholder="Karthik, Room 304"
                   value={debtName}
                   onChange={(e) => setDebtName(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200"
+                  className="w-full min-w-0 h-9 input-field rounded-lg px-3"
                 />
               </div>
 
-              <div>
-                <label className="block text-slate-400 mb-1">Amount ({currency})</label>
+              <div className="space-y-1.5">
+                <label className="block text-ink-secondary">Amount ({currency})</label>
                 <input
                   type="number"
                   step="0.01"
                   required
-                  placeholder="e.g. 250"
+                  placeholder="250"
                   value={debtAmount}
                   onChange={(e) => setDebtAmount(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 font-mono"
+                  className="w-full min-w-0 h-9 input-field rounded-lg px-3 font-mono tabular-nums"
                 />
               </div>
 
-              <div>
-                <label className="block text-slate-400 mb-1">Description / Notes</label>
+              <div className="space-y-1.5">
+                <label className="block text-ink-secondary">Note</label>
                 <input
                   type="text"
-                  placeholder="e.g. Movie ticket share, canteen snack"
+                  placeholder="Movie ticket, canteen snack"
                   value={debtDesc}
                   onChange={(e) => setDebtDesc(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200"
+                  className="w-full min-w-0 h-9 input-field rounded-lg px-3"
                 />
               </div>
 
-              <div>
-                <label className="block text-slate-400 mb-1">Target Repayment Date</label>
+              <div className="space-y-1.5">
+                <label className="block text-ink-secondary">Due date</label>
                 <input
                   type="date"
                   value={debtDueDate}
                   onChange={(e) => setDebtDueDate(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200"
+                  className="w-full min-w-0 h-9 input-field rounded-lg px-3 font-mono"
                 />
               </div>
             </div>
@@ -570,15 +594,15 @@ export const StudentHubView: React.FC<StudentHubViewProps> = ({
               <button
                 type="button"
                 onClick={() => setShowDebtModal(false)}
-                className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg text-xs"
+                className="h-8 px-3.5 btn-secondary rounded-lg text-[12px]"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-1.5 bg-teal-500 hover:bg-teal-600 text-slate-950 font-semibold rounded-lg text-xs"
+                className="h-8 px-4 btn-primary rounded-lg text-[12px] font-medium"
               >
-                Save Record
+                Save record
               </button>
             </div>
           </form>

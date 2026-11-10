@@ -237,14 +237,92 @@ describe('4. Financial Context & Deterministic Assistant', () => {
     assert.strictEqual(context.budgetPercentage, 40);
     assert.strictEqual(context.topCategories[0].name, 'Food & Mess');
 
-    // Test deterministic answer engine
-    const answerDaily = getDeterministicAnswer('What is my safe daily spending limit?', context);
-    assert.ok(answerDaily.includes('safe daily spending limit'));
+    // Test deterministic answer engine on populated ledger
+    const answerDaily = getDeterministicAnswer('What is my safe daily spend limit?', context);
+    assert.ok(answerDaily.toLowerCase().includes('safe daily spend limit'));
     assert.ok(answerDaily.includes('₹6,000'));
 
-    const answerCategory = getDeterministicAnswer('Which category is highest?', context);
+    const answerCategory = getDeterministicAnswer('Highest expense category', context);
     assert.ok(answerCategory.includes('Food & Mess'));
     assert.ok(answerCategory.includes('₹3,200'));
+
+    const answerSummary = getDeterministicAnswer('Monthly summary', context);
+    assert.ok(answerSummary.includes('₹8,000'));
+    assert.ok(answerSummary.includes('₹4,000'));
+
+    const answerAffordYes = getDeterministicAnswer('Can I afford a ₹2,000 outing?', context);
+    assert.ok(answerAffordYes.includes('Yes'));
+    assert.ok(answerAffordYes.includes('₹4,000'));
+
+    const answerAffordNo = getDeterministicAnswer('Can I afford a ₹9,000 outing?', context);
+    assert.ok(answerAffordNo.includes('No'));
+
+    // Ensure every question produces a different response
+    const uniqueAnswers = new Set([answerDaily, answerCategory, answerSummary, answerAffordYes, answerAffordNo]);
+    assert.strictEqual(uniqueAnswers.size, 5, 'Different questions must produce distinct answers');
+  });
+
+  test('produces distinct, question-specific responses in ClientStore for both empty and populated ledgers', async () => {
+    const { ClientStore } = await import('../src/clientStore.ts');
+    const store = new ClientStore();
+
+    store.register({
+      name: 'Advisor Tester',
+      email: 'advisor@college.edu',
+      password: 'AdvisorPassword123!',
+      monthlyBudget: 12000,
+    });
+
+    // Empty ledger (0 transactions): different questions must NOT repeat the same canned text
+    const emptySummary = store.askAI('Monthly summary').answer;
+    const emptyCategory = store.askAI('Highest expense category').answer;
+    const emptyDaily = store.askAI('Safe daily spend limit').answer;
+    const emptyAffordYes = store.askAI('Can I afford a ₹2,000 outing?').answer;
+    const emptyAffordNo = store.askAI('Can I afford a ₹20,000 purchase?').answer;
+
+    const emptySet = new Set([emptySummary, emptyCategory, emptyDaily, emptyAffordYes, emptyAffordNo]);
+    assert.strictEqual(emptySet.size, 5, 'Empty ledger must return distinct question-specific answers');
+    assert.ok(emptyCategory.toLowerCase().includes('insufficient transaction data'));
+    assert.ok(emptyAffordYes.includes('10,000'));
+    assert.ok(emptyAffordNo.includes('exceeds'));
+
+    // Populate ledger with actual transactions in current month
+    const now = new Date();
+    const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    store.createTransaction({
+      kind: 'income',
+      amount: 15000,
+      categoryId: 'cat-allowance',
+      description: 'Monthly Stipend',
+      date: `${ym}-01`,
+    });
+    store.createTransaction({
+      kind: 'expense',
+      amount: 4500,
+      categoryId: 'cat-hostel',
+      description: 'Hostel Fee',
+      date: `${ym}-02`,
+    });
+    store.createTransaction({
+      kind: 'expense',
+      amount: 1800,
+      categoryId: 'cat-food',
+      description: 'Campus Canteen',
+      date: `${ym}-03`,
+    });
+
+    const popSummary = store.askAI('Monthly summary').answer;
+    const popCategory = store.askAI('Highest expense category').answer;
+    const popDaily = store.askAI('Safe daily spend limit').answer;
+    const popAffordYes = store.askAI('Can I afford a ₹2,000 outing?').answer;
+    const popAffordNo = store.askAI('Can I afford a ₹8,000 outing?').answer;
+
+    const popSet = new Set([popSummary, popCategory, popDaily, popAffordYes, popAffordNo]);
+    assert.strictEqual(popSet.size, 5, 'Populated ledger must return distinct question-specific answers');
+    assert.ok(popSummary.includes('₹15,000') && popSummary.includes('₹6,300'));
+    assert.ok(popCategory.includes('Hostel & Rent') && popCategory.includes('₹4,500'));
+    assert.ok(popAffordYes.includes('Yes') && popAffordYes.includes('₹3,700'));
+    assert.ok(popAffordNo.includes('No'));
   });
 });
 

@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Edit2, Calendar, CreditCard, Tag } from 'lucide-react';
-import { Transaction, Category, PaymentMethod, AccountWallet, TransactionKind } from '../types.ts';
+import { X } from 'lucide-react';
+import {
+  Transaction,
+  Category,
+  PaymentMethod,
+  AccountWallet,
+  TransactionKind,
+} from '../types.ts';
 import { api } from '../api.ts';
 
 interface TransactionFormModalProps {
@@ -71,11 +77,11 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
     e.preventDefault();
     const num = parseFloat(amount);
     if (isNaN(num) || num <= 0) {
-      setError('Please enter a valid amount greater than zero.');
+      setError('Enter a valid amount greater than zero.');
       return;
     }
     if (!categoryId) {
-      setError('Please select a valid category.');
+      setError('Select a category.');
       return;
     }
 
@@ -125,27 +131,30 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2">
-            {transactionToEdit ? <Edit2 className="w-4 h-4 text-teal-400" /> : <Plus className="w-4 h-4 text-emerald-400" />}
-            {transactionToEdit ? 'Edit Transaction' : 'Record New Transaction'}
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-3 sm:p-4 font-sans">
+      <div className="surface-card rounded-xl max-w-md w-full max-h-[calc(100dvh-1.5rem)] overflow-y-auto p-4 sm:p-6 space-y-5 min-w-0">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-[16px] font-medium text-ink-primary">
+            {transactionToEdit ? 'Edit transaction' : 'New transaction'}
           </h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-white">
-            <X className="w-4 h-4" />
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-ink-muted hover:text-ink-primary shrink-0 p-1"
+          >
+            <X className="w-4 h-4" strokeWidth={1.5} />
           </button>
         </div>
 
         {error && (
-          <div className="p-2.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-xs">
+          <div className="p-3 rounded-lg bg-[#e5484d]/10 border border-[#e5484d]/30 text-negative text-[13px]">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
-          {/* Kind Toggle */}
-          <div className="grid grid-cols-2 gap-2 p-1 bg-slate-950 rounded-xl border border-slate-800">
+        <form onSubmit={handleSubmit} className="space-y-4 text-[13px] min-w-0">
+          {/* Kind Switcher */}
+          <div className="grid grid-cols-2 p-1 surface-deep rounded-lg border hairline-border">
             <button
               type="button"
               onClick={() => {
@@ -153,13 +162,13 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                 const cat = categories.find((c) => c.kind === 'expense');
                 if (cat) setCategoryId(cat.id);
               }}
-              className={`py-2 rounded-lg font-semibold transition-colors ${
+              className={`h-8 rounded-md text-[12px] transition-colors ${
                 kind === 'expense'
-                  ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'surface-active-row text-ink-primary font-medium'
+                  : 'text-ink-muted hover:text-ink-primary'
               }`}
             >
-              Expense (-)
+              Expense
             </button>
             <button
               type="button"
@@ -168,22 +177,23 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                 const cat = categories.find((c) => c.kind === 'income');
                 if (cat) setCategoryId(cat.id);
               }}
-              className={`py-2 rounded-lg font-semibold transition-colors ${
+              className={`h-8 rounded-md text-[12px] transition-colors ${
                 kind === 'income'
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'surface-active-row text-ink-primary font-medium'
+                  : 'text-ink-muted hover:text-ink-primary'
               }`}
             >
-              Income (+)
+              Income
             </button>
           </div>
 
-          {/* Amount & Date */}
-          <div className="grid grid-cols-2 gap-2.5">
-            <div>
-              <label className="block text-slate-400 mb-1">Amount ({currency}) *</label>
-              <div className="relative">
-                <span className="absolute left-3 top-2.5 text-slate-400 font-mono">{currency}</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0">
+            <div className="space-y-1.5 min-w-0">
+              <label className="block text-ink-secondary">Amount ({currency})</label>
+              <div className="relative min-w-0">
+                <span className="absolute left-3 top-2 text-ink-muted font-mono">
+                  {currency}
+                </span>
                 <input
                   type="number"
                   step="0.01"
@@ -191,69 +201,68 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                   placeholder="0.00"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-3 py-2 text-sm font-bold font-mono text-white focus:outline-none focus:border-teal-500"
+                  className="w-full min-w-0 h-9 input-field rounded-lg pl-8 pr-3 font-mono font-medium tabular-nums"
                 />
               </div>
             </div>
 
-            <div>
-              <label className="block text-slate-400 mb-1">Date *</label>
+            <div className="space-y-1.5 min-w-0">
+              <label className="block text-ink-secondary">Date</label>
               <input
                 type="date"
                 required
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-teal-500"
+                className="w-full min-w-0 h-9 input-field rounded-lg px-3 font-mono"
               />
             </div>
           </div>
 
-          {/* Category */}
-          <div>
-            <label className="block text-slate-400 mb-1">Category *</label>
+          <div className="space-y-1.5 min-w-0">
+            <label className="block text-ink-secondary">Category</label>
             <select
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-teal-500"
+              className="w-full min-w-0 h-9 input-field rounded-lg px-3"
             >
               {filteredCategories.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
               ))}
             </select>
           </div>
 
-          {/* Description & Merchant */}
-          <div className="grid grid-cols-2 gap-2.5">
-            <div>
-              <label className="block text-slate-400 mb-1">Description</label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0">
+            <div className="space-y-1.5 min-w-0">
+              <label className="block text-ink-secondary">Description</label>
               <input
                 type="text"
-                placeholder="e.g. Mess lunch, textbook"
+                placeholder="Mess lunch, textbook"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-teal-500"
+                className="w-full min-w-0 h-9 input-field rounded-lg px-3"
               />
             </div>
-            <div>
-              <label className="block text-slate-400 mb-1">Merchant / Payee</label>
+            <div className="space-y-1.5 min-w-0">
+              <label className="block text-ink-secondary">Merchant or payee</label>
               <input
                 type="text"
-                placeholder="e.g. Canteen, Amazon"
+                placeholder="Canteen, bookstore"
                 value={merchant}
                 onChange={(e) => setMerchant(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-teal-500"
+                className="w-full min-w-0 h-9 input-field rounded-lg px-3"
               />
             </div>
           </div>
 
-          {/* Account & Payment Method */}
-          <div className="grid grid-cols-2 gap-2.5">
-            <div>
-              <label className="block text-slate-400 mb-1">Account / Wallet</label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0">
+            <div className="space-y-1.5 min-w-0">
+              <label className="block text-ink-secondary">Account</label>
               <select
                 value={account}
                 onChange={(e) => setAccount(e.target.value as any)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-teal-500"
+                className="w-full min-w-0 h-9 input-field rounded-lg px-3"
               >
                 <option value="Primary Bank">Primary Bank</option>
                 <option value="Pocket Cash">Pocket Cash</option>
@@ -262,50 +271,52 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                 <option value="Digital Wallet">Digital Wallet</option>
               </select>
             </div>
-            <div>
-              <label className="block text-slate-400 mb-1">Payment Method</label>
+            <div className="space-y-1.5 min-w-0">
+              <label className="block text-ink-secondary">Payment method</label>
               <select
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value as any)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-teal-500"
+                className="w-full min-w-0 h-9 input-field rounded-lg px-3"
               >
-                <option value="UPI">UPI (GPay / PhonePe)</option>
+                <option value="UPI">UPI</option>
                 <option value="Cash">Cash</option>
-                <option value="Card">Debit / Credit Card</option>
+                <option value="Card">Card</option>
                 <option value="Net Banking">Net Banking</option>
-                <option value="Digital Wallet">Wallet</option>
+                <option value="Digital Wallet">Digital Wallet</option>
                 <option value="Other">Other</option>
               </select>
             </div>
           </div>
 
-          {/* Tags */}
-          <div>
-            <label className="block text-slate-400 mb-1">Tags (comma separated)</label>
+          <div className="space-y-1.5 min-w-0">
+            <label className="block text-ink-secondary">Tags (comma separated)</label>
             <input
               type="text"
-              placeholder="e.g. mess, hostel, exam, weekend"
+              placeholder="mess, hostel, exam"
               value={tagsInput}
               onChange={(e) => setTagsInput(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-teal-500"
+              className="w-full min-w-0 h-9 input-field rounded-lg px-3"
             />
           </div>
 
-          {/* Buttons */}
-          <div className="flex justify-end gap-2.5 pt-3">
+          <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs"
+              className="h-9 px-3.5 btn-secondary rounded-lg text-[13px]"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-5 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold rounded-xl text-xs transition-colors shadow disabled:opacity-50"
+              className="h-9 px-4 btn-primary rounded-lg text-[13px] font-medium disabled:opacity-50"
             >
-              {loading ? 'Saving...' : transactionToEdit ? 'Update Record' : 'Save Record'}
+              {loading
+                ? 'Saving...'
+                : transactionToEdit
+                ? 'Update record'
+                : 'Save record'}
             </button>
           </div>
         </form>

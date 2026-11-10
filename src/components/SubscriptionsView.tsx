@@ -1,13 +1,7 @@
 import React, { useState } from 'react';
 import {
-  CalendarClock,
   Plus,
-  CheckCircle2,
-  AlertCircle,
-  Pause,
-  Play,
   Trash2,
-  CreditCard,
   X,
 } from 'lucide-react';
 import { RecurringPayment, Category, User, PaymentMethod } from '../types.ts';
@@ -23,7 +17,6 @@ interface SubscriptionsViewProps {
 }
 
 export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
-  user,
   currency,
   recurring,
   categories,
@@ -33,11 +26,11 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
   const [showModal, setShowModal] = useState(false);
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
-  const [kind, setKind] = useState<'expense' | 'income'>('expense');
+  const [kind] = useState<'expense' | 'income'>('expense');
   const [categoryId, setCategoryId] = useState('');
   const [frequency, setFrequency] = useState<any>('monthly');
   const [nextDueDate, setNextDueDate] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('UPI');
+  const [paymentMethod] = useState<PaymentMethod>('UPI');
   const [notes, setNotes] = useState('');
 
   const activeBills = recurring.filter((r) => r.status === 'active');
@@ -90,201 +83,229 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
   };
 
   return (
-    <div className="space-y-6 pb-12">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-            <CalendarClock className="w-5 h-5 text-teal-400" /> Recurring &amp; Subscriptions
+    <div className="space-y-6 pb-12 font-sans w-full min-w-0">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 min-w-0">
+        <div className="space-y-1 min-w-0">
+          <div className="text-[12px] font-mono text-ink-muted">
+            Fixed monthly commitments
+          </div>
+          <h1 className="text-[24px] sm:text-[28px] font-medium text-ink-primary tracking-tight leading-tight">
+            Recurring bills
           </h1>
-          <p className="text-xs text-slate-400">
-            Track fixed student commitments: Hostel room rent, broadband, mess dues, mobile pack, and streaming
-          </p>
         </div>
         <button
+          type="button"
           onClick={() => {
             setCategoryId(categories.find((c) => c.kind === 'expense')?.id || '');
             setShowModal(true);
           }}
-          className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-semibold rounded-lg text-xs flex items-center gap-1.5 transition-colors shadow"
+          className="h-9 px-4 btn-primary rounded-lg text-[13px] font-medium flex items-center gap-2 whitespace-nowrap self-start sm:self-auto shrink-0"
         >
-          <Plus className="w-3.5 h-3.5" /> New Recurring Schedule
+          <Plus className="w-4 h-4 shrink-0" strokeWidth={1.75} />
+          <span>New recurring bill</span>
         </button>
       </div>
 
-      {/* Summary Box */}
-      <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="text-xs text-slate-400 font-medium">
-            Estimated monthly fixed commitments
+      {/* Summary Strip */}
+      <div className="p-4 sm:p-6 rounded-xl surface-card flex flex-col sm:flex-row sm:items-center justify-between gap-4 min-w-0">
+        <div className="space-y-1 min-w-0">
+          <div className="text-[12px] text-ink-muted">
+            Estimated monthly fixed commitment
           </div>
-          <div className="text-2xl font-bold text-white mt-0.5 tabular-nums">
-            {currency}{Math.round(totalMonthlyCommitment).toLocaleString()} <span className="text-xs font-normal text-slate-400">/ month</span>
+          <div className="text-[24px] sm:text-[28px] font-medium text-ink-primary font-mono tabular-nums leading-none break-words">
+            {currency}{Math.round(totalMonthlyCommitment).toLocaleString()}{' '}
+            <span className="text-[13px] font-normal text-ink-secondary">/ month</span>
           </div>
         </div>
-        <div className="text-xs text-slate-400">
-          <strong className="text-emerald-400">{activeBills.length}</strong> active schedules monitored
+        <div className="text-[13px] text-ink-secondary font-mono shrink-0">
+          {activeBills.length} active schedules
         </div>
       </div>
 
-      {/* Subscriptions Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* Recurring Bills Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 min-w-0">
         {recurring.length > 0 ? (
           recurring.map((rec) => {
             const cat = categories.find((c) => c.id === rec.categoryId);
             const due = new Date(rec.nextDueDate);
             const now = new Date();
-            const daysUntil = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+            const daysUntil = Math.ceil(
+              (due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+            );
 
             return (
               <div
                 key={rec.id}
-                className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800/80 space-y-3 relative group"
+                className="p-4 sm:p-5 rounded-xl surface-card space-y-4 group min-w-0"
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-white truncate">{rec.title}</span>
-                  <div className="flex items-center gap-1">
-                    <span className="text-[11px] font-mono text-slate-400 capitalize">
+                <div className="flex items-center justify-between gap-2 min-w-0">
+                  <span className="text-[14px] font-medium text-ink-primary truncate min-w-0">
+                    {rec.title}
+                  </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[12px] font-mono text-ink-muted capitalize">
                       {rec.frequency}
                     </span>
                     <button
+                      type="button"
                       onClick={() => handleDelete(rec.id)}
-                      className="p-1 text-slate-500 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="p-1 text-ink-muted hover:text-negative opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                     >
-                      <Trash2 className="w-3 h-3" />
+                      <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
                     </button>
                   </div>
                 </div>
 
-                <div className="flex items-baseline justify-between">
-                  <div className={`text-xl font-bold font-mono tabular-nums ${
-                    rec.kind === 'income' ? 'text-emerald-400' : 'text-slate-100'
-                  }`}>
-                    {rec.kind === 'income' ? '+' : '-'}{currency}{rec.amount.toLocaleString()}
+                <div className="flex items-baseline justify-between gap-2 min-w-0">
+                  <div
+                    className={`text-[22px] font-medium font-mono tabular-nums leading-none break-words ${
+                      rec.kind === 'income' ? 'text-positive' : 'text-ink-primary'
+                    }`}
+                  >
+                    {rec.kind === 'income' ? '+' : '-'}{currency}
+                    {Math.round(rec.amount).toLocaleString()}
                   </div>
-                  <span className={`text-[11px] font-mono font-semibold ${
-                    daysUntil <= 3
-                      ? 'text-rose-400'
-                      : daysUntil <= 7
-                      ? 'text-amber-400'
-                      : 'text-slate-400'
-                  }`}>
-                    {daysUntil <= 0 ? 'Due Today' : `Due in ${daysUntil}d`}
+                  <span
+                    className={`text-[12px] font-mono shrink-0 ${
+                      daysUntil <= 3
+                        ? 'text-negative'
+                        : daysUntil <= 7
+                        ? 'text-warning'
+                        : 'text-ink-muted'
+                    }`}
+                  >
+                    {daysUntil <= 0 ? 'Due today' : `Due in ${daysUntil}d`}
                   </span>
                 </div>
 
-                <div className="text-[11px] text-slate-400 flex items-center justify-between">
-                  <span>Next date: <strong className="text-slate-300 font-mono">{rec.nextDueDate}</strong></span>
-                  <span>{rec.paymentMethod}</span>
+                <div className="text-[12px] text-ink-secondary font-mono flex items-center justify-between gap-2">
+                  <span>Next: {rec.nextDueDate}</span>
+                  <span className="text-ink-muted">{rec.paymentMethod}</span>
                 </div>
 
                 {rec.notes && (
-                  <p className="text-[10px] text-slate-500 truncate">{rec.notes}</p>
+                  <p className="text-[12px] text-ink-muted truncate">{rec.notes}</p>
                 )}
 
-                <div className="pt-2 border-t border-slate-800/60 flex items-center justify-between">
-                  <span className="text-[10px] text-slate-400">{cat?.name || 'Fixed'}</span>
+                <div className="pt-3 border-t hairline-border flex items-center justify-between gap-2">
+                  <span className="text-[12px] text-ink-muted truncate min-w-0">
+                    {cat?.name || 'Fixed bill'}
+                  </span>
                   <button
+                    type="button"
                     onClick={() => onLogRecurring(rec.id)}
-                    className="px-3 py-1 bg-teal-500/15 hover:bg-teal-500/25 text-teal-300 border border-teal-500/30 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1"
+                    className="h-7 px-2.5 btn-secondary rounded-md text-[12px] font-normal shrink-0"
                   >
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Pay &amp; Record
+                    Record payment
                   </button>
                 </div>
               </div>
             );
           })
         ) : (
-          <div className="col-span-full py-8 text-center text-xs text-slate-500 bg-slate-900/40 rounded-xl border border-slate-800/60">
-            No recurring schedules found. Add your room rent, mess fee, or mobile plan.
+          <div className="col-span-full py-10 text-center text-[13px] text-ink-muted surface-card rounded-xl">
+            No recurring bills scheduled yet
           </div>
         )}
       </div>
 
-      {/* Modal */}
+      {/* Create Recurring Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <form onSubmit={handleCreate} className="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-white">Create Recurring Commitment</h3>
-              <button type="button" onClick={() => setShowModal(false)} className="text-slate-400 hover:text-white">
-                <X className="w-4 h-4" />
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <form
+            onSubmit={handleCreate}
+            className="surface-card rounded-xl max-w-sm w-full max-h-[calc(100dvh-1.5rem)] overflow-y-auto p-5 space-y-4 min-w-0"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-[15px] font-medium text-ink-primary">
+                New recurring commitment
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="text-ink-muted hover:text-ink-primary shrink-0"
+              >
+                <X className="w-4 h-4" strokeWidth={1.5} />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block text-slate-400 mb-1">Title</label>
+            <div className="space-y-3 text-[13px]">
+              <div className="space-y-1.5">
+                <label className="block text-ink-secondary">Title</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Hostel Rent, Spotify, Mobile Pack"
+                  placeholder="Hostel rent, broadband, mobile plan"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200"
+                  className="w-full min-w-0 h-9 input-field rounded-lg px-3"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-slate-400 mb-1">Amount ({currency})</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="block text-ink-secondary">Amount ({currency})</label>
                   <input
                     type="number"
                     step="0.01"
                     required
-                    placeholder="e.g. 500"
+                    placeholder="500"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 font-mono"
+                    className="w-full min-w-0 h-9 input-field rounded-lg px-3 font-mono tabular-nums"
                   />
                 </div>
-                <div>
-                  <label className="block text-slate-400 mb-1">Cadence</label>
+                <div className="space-y-1.5">
+                  <label className="block text-ink-secondary">Cadence</label>
                   <select
                     value={frequency}
                     onChange={(e) => setFrequency(e.target.value as any)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200"
+                    className="w-full min-w-0 h-9 input-field rounded-lg px-3"
                   >
                     <option value="monthly">Monthly</option>
                     <option value="weekly">Weekly</option>
-                    <option value="semester">Semester (Every 4 mos)</option>
+                    <option value="semester">Semester</option>
                     <option value="yearly">Yearly</option>
                   </select>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-slate-400 mb-1">Category</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="block text-ink-secondary">Category</label>
                   <select
                     value={categoryId}
                     onChange={(e) => setCategoryId(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200"
+                    className="w-full min-w-0 h-9 input-field rounded-lg px-3"
                   >
                     {categories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
                     ))}
                   </select>
                 </div>
-                <div>
-                  <label className="block text-slate-400 mb-1">Next Due Date</label>
+                <div className="space-y-1.5">
+                  <label className="block text-ink-secondary">Next due date</label>
                   <input
                     type="date"
                     required
                     value={nextDueDate}
                     onChange={(e) => setNextDueDate(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200"
+                    className="w-full min-w-0 h-9 input-field rounded-lg px-3 font-mono"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-slate-400 mb-1">Notes</label>
+              <div className="space-y-1.5">
+                <label className="block text-ink-secondary">Note</label>
                 <input
                   type="text"
-                  placeholder="e.g. Split with room 304, pay before 5th"
+                  placeholder="Pay before the 5th"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200"
+                  className="w-full min-w-0 h-9 input-field rounded-lg px-3"
                 />
               </div>
             </div>
@@ -293,15 +314,15 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({
               <button
                 type="button"
                 onClick={() => setShowModal(false)}
-                className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg text-xs"
+                className="h-8 px-3.5 btn-secondary rounded-lg text-[12px]"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-1.5 bg-teal-500 hover:bg-teal-600 text-slate-950 font-semibold rounded-lg text-xs"
+                className="h-8 px-4 btn-primary rounded-lg text-[12px] font-medium"
               >
-                Save Schedule
+                Save schedule
               </button>
             </div>
           </form>

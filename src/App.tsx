@@ -57,6 +57,7 @@ export default function App() {
 
   // Load active session
   useEffect(() => {
+    document.documentElement.classList.add('dark');
     const token = getStoredToken();
     if (!token) {
       setLoadingAuth(false);
@@ -191,9 +192,9 @@ export default function App() {
 
   if (loadingAuth) {
     return (
-      <div className="h-screen w-screen bg-slate-950 flex flex-col items-center justify-center space-y-3">
-        <div className="w-10 h-10 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
-        <span className="text-xs text-slate-400 font-mono">Initializing CostCurve...</span>
+      <div className="h-screen w-screen surface-page flex flex-col items-center justify-center gap-3">
+        <div className="w-6 h-6 border-2 border-[var(--border-strong)] border-t-[var(--text-primary)] rounded-full animate-spin" />
+        <span className="text-xs text-ink-muted font-mono">Loading CostCurve</span>
       </div>
     );
   }
@@ -205,7 +206,7 @@ export default function App() {
   const healthScore = analytics?.currentMonth.healthScore ?? 85;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-teal-500/30 selection:text-teal-200">
+    <div className="min-h-screen w-full max-w-full surface-page text-ink-primary flex flex-col font-sans">
       {/* Top Navbar */}
       <Navbar
         user={user}
@@ -218,7 +219,7 @@ export default function App() {
         onCurrencyChange={handleCurrencyChange}
       />
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex min-w-0 w-full">
         {/* Sidebar */}
         <Sidebar
           currentTab={currentTab}
@@ -231,7 +232,7 @@ export default function App() {
         />
 
         {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
+        <main className="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6 lg:p-8 max-w-[1440px] mx-auto w-full">
           {currentTab === 'dashboard' && (
             <DashboardView
               user={user}

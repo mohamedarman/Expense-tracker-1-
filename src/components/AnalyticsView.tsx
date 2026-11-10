@@ -1,11 +1,4 @@
 import React from 'react';
-import {
-  TrendingUp,
-  AlertTriangle,
-  Lightbulb,
-  CheckCircle2,
-  Info,
-} from 'lucide-react';
 import { AnalyticsResponse, FinancialInsight, User } from '../types.ts';
 
 interface AnalyticsViewProps {
@@ -16,161 +9,174 @@ interface AnalyticsViewProps {
 }
 
 export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
-  user,
   currency,
   analytics,
   insights,
 }) => {
   const cur = analytics?.currentMonth;
   const totalExp = cur?.expense || 1;
-  const essentialPct = cur ? Math.round((cur.essentialExpense / totalExp) * 100) : 60;
-  const discretionaryPct = 100 - essentialPct;
+  const essentialPct = cur
+    ? Math.round((cur.essentialExpense / totalExp) * 100)
+    : 0;
+  const discretionaryPct = cur && cur.expense > 0 ? 100 - essentialPct : 0;
 
   return (
-    <div className="space-y-6 pb-12 font-sans">
+    <div className="space-y-8 pb-12 font-sans w-full min-w-0">
       {/* Header */}
-      <div>
-        <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-          <TrendingUp className="w-5 h-5 text-teal-400" /> Financial Analytics &amp; Insights
+      <div className="space-y-1 min-w-0">
+        <div className="text-[12px] font-mono text-ink-muted">
+          Category share and essential ratio
+        </div>
+        <h1 className="text-[24px] sm:text-[28px] font-medium text-ink-primary tracking-tight leading-tight">
+          Spending analysis
         </h1>
-        <p className="text-xs text-slate-400">
-          Transparent, mathematical analysis of your spending patterns, essential necessities, and savings velocity
-        </p>
       </div>
 
-      {/* Explainable Insights Cards */}
-      <div className="space-y-3">
-        <h2 className="text-sm font-semibold text-slate-200">
-          Data-driven findings
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-          {insights.map((ins, idx) => {
-            let borderClass = 'border-slate-800 bg-slate-900/80';
-            let icon = <Info className="w-4 h-4 text-teal-400 shrink-0" />;
-
-            if (ins.type === 'alert') {
-              borderClass = 'border-rose-500/30 bg-rose-950/20';
-              icon = <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />;
-            } else if (ins.type === 'success') {
-              borderClass = 'border-emerald-500/30 bg-emerald-950/20';
-              icon = <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />;
-            } else if (ins.type === 'tip') {
-              borderClass = 'border-amber-500/30 bg-amber-950/20';
-              icon = <Lightbulb className="w-4 h-4 text-amber-400 shrink-0" />;
-            }
-
-            return (
-              <div
-                key={idx}
-                className={`p-4 rounded-xl border flex items-start gap-3 transition-colors ${borderClass}`}
-              >
-                <div className="p-1 rounded-lg mt-0.5">{icon}</div>
-                <div className="space-y-1">
-                  <h3 className="text-xs font-bold text-white">{ins.title}</h3>
-                  <p className="text-xs text-slate-300 leading-relaxed">{ins.message}</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Main Grid: Essential vs Discretionary & Category Breakdown */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Essential vs Discretionary */}
-        <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4">
-          <div>
-            <h2 className="text-sm font-bold text-white">Essential vs. Discretionary</h2>
-            <p className="text-xs text-slate-400">Needs (Mess, Hostel, Academics) vs Wants</p>
-          </div>
-
-          <div className="space-y-3 pt-2">
-            <div>
-              <div className="flex items-center justify-between text-xs mb-1.5">
-                <span className="text-slate-300 font-medium">Essential Needs</span>
-                <span className="tabular-nums text-emerald-400 font-bold">
-                  {currency}{(cur?.essentialExpense ?? 0).toLocaleString()} ({essentialPct}%)
-                </span>
-              </div>
-              <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-emerald-500 rounded-full transition-colors"
-                  style={{ width: `${essentialPct}%` }}
-                />
-              </div>
+      {/* Main Grid: Category Distribution (2/3 width) & Essential vs Discretionary (1/3 width) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-w-0">
+        {/* Category Distribution (2/3 width) */}
+        <div className="lg:col-span-8 p-4 sm:p-6 rounded-xl surface-card space-y-5 min-w-0">
+          <div className="flex flex-wrap items-center justify-between gap-2 min-w-0">
+            <div className="space-y-0.5 min-w-0">
+              <h2 className="text-[15px] font-medium text-ink-primary">
+                Category distribution
+              </h2>
+              <p className="text-[13px] text-ink-secondary">
+                Monthly expenditures ranked by volume
+              </p>
             </div>
-
-            <div>
-              <div className="flex items-center justify-between text-xs mb-1.5">
-                <span className="text-slate-300 font-medium">Discretionary / Leisure</span>
-                <span className="tabular-nums text-amber-400 font-bold">
-                  {currency}{(cur?.discretionaryExpense ?? 0).toLocaleString()} ({discretionaryPct}%)
-                </span>
-              </div>
-              <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-amber-400 rounded-full transition-colors"
-                  style={{ width: `${discretionaryPct}%` }}
-                />
-              </div>
-            </div>
-          </div>
-
-          <p className="text-[11px] text-slate-400 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
-            Rule of thumb for college students: Aim for at least 70% essential spending so sudden textbook or exam fee outlays don't cause a deficit.
-          </p>
-        </div>
-
-        {/* Category Distribution Full */}
-        <div className="lg:col-span-2 p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-bold text-white">Category Distribution</h2>
-              <p className="text-xs text-slate-400">All expenditures sorted by total volume</p>
-            </div>
-            <span className="text-xs tabular-nums text-slate-400">
-              Total: {currency}{(cur?.expense ?? 0).toLocaleString()}
+            <span className="text-[13px] font-mono tabular-nums text-ink-secondary shrink-0">
+              Total: {currency}{Math.round(cur?.expense ?? 0).toLocaleString()}
             </span>
           </div>
 
-          <div className="space-y-3 pt-2">
-            {analytics?.categoryBreakdown && analytics.categoryBreakdown.length > 0 ? (
+          <div className="space-y-4 pt-1 min-w-0">
+            {analytics?.categoryBreakdown &&
+            analytics.categoryBreakdown.length > 0 ? (
               analytics.categoryBreakdown.map((cat, idx) => {
                 const pct = Math.round((cat.amount / (cur?.expense || 1)) * 100);
+                const isTopCategory = idx === 0;
                 return (
-                  <div key={idx} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="w-2.5 h-2.5 rounded-full"
-                          style={{ backgroundColor: cat.color }}
-                        />
-                        <span className="font-medium text-slate-200">{cat.name}</span>
-                        {cat.isEssential ? (
-                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400">Essential</span>
-                        ) : (
-                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-300">Discretionary</span>
-                        )}
+                  <div key={idx} className="space-y-1.5 min-w-0">
+                    <div className="flex items-center justify-between gap-2 text-[13px] min-w-0">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-ink-primary font-normal truncate min-w-0">
+                          {cat.name}
+                        </span>
+                        <span className="hidden sm:inline text-[12px] text-ink-muted shrink-0">
+                          · {cat.isEssential ? 'Essential' : 'Discretionary'}
+                        </span>
                       </div>
-                      <span className="tabular-nums text-slate-300">
-                        {currency}{cat.amount.toLocaleString()} ({pct}%)
+                      <span className="font-mono text-[12px] tabular-nums text-ink-secondary shrink-0">
+                        {currency}{Math.round(cat.amount).toLocaleString()} · {pct}%
                       </span>
                     </div>
-                    <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                    <div className="w-full h-1.5 surface-deep rounded-sm overflow-hidden">
                       <div
-                        className="h-full rounded-full transition-colors"
-                        style={{ width: `${pct}%`, backgroundColor: cat.color }}
+                        className={`h-full transition-colors ${
+                          isTopCategory
+                            ? 'bg-[var(--accent)]'
+                            : 'bg-[var(--text-muted)]'
+                        }`}
+                        style={{ width: `${pct}%` }}
                       />
                     </div>
                   </div>
                 );
               })
             ) : (
-              <div className="py-8 text-center text-xs text-slate-500">
-                No expense data recorded.
+              <div className="py-12 text-center text-[13px] text-ink-muted">
+                No expense data recorded for this period
               </div>
             )}
           </div>
+        </div>
+
+        {/* Essential vs Discretionary Split (1/3 width) */}
+        <div className="lg:col-span-4 p-4 sm:p-6 rounded-xl surface-card flex flex-col justify-between space-y-6 min-w-0">
+          <div className="space-y-5 min-w-0">
+            <div className="space-y-0.5 min-w-0">
+              <h2 className="text-[15px] font-medium text-ink-primary">
+                Essential vs discretionary
+              </h2>
+              <p className="text-[13px] text-ink-secondary">
+                Academic and living needs vs leisure
+              </p>
+            </div>
+
+            <div className="space-y-4 min-w-0">
+              <div className="space-y-1.5 min-w-0">
+                <div className="flex items-center justify-between gap-2 text-[13px] min-w-0">
+                  <span className="text-ink-primary truncate">Essential needs</span>
+                  <span className="font-mono text-[12px] tabular-nums text-ink-secondary shrink-0">
+                    {currency}{Math.round(cur?.essentialExpense ?? 0).toLocaleString()} · {essentialPct}%
+                  </span>
+                </div>
+                <div className="w-full h-1.5 surface-deep rounded-sm overflow-hidden">
+                  <div
+                    className="h-full bg-[var(--accent)]"
+                    style={{ width: `${essentialPct}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5 min-w-0">
+                <div className="flex items-center justify-between gap-2 text-[13px] min-w-0">
+                  <span className="text-ink-primary truncate">Discretionary spend</span>
+                  <span className="font-mono text-[12px] tabular-nums text-ink-secondary shrink-0">
+                    {currency}{Math.round(cur?.discretionaryExpense ?? 0).toLocaleString()} · {discretionaryPct}%
+                  </span>
+                </div>
+                <div className="w-full h-1.5 surface-deep rounded-sm overflow-hidden">
+                  <div
+                    className="h-full bg-[var(--text-muted)]"
+                    style={{ width: `${discretionaryPct}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-[12px] text-ink-muted leading-relaxed pt-4 border-t hairline-border">
+            Keeping essential costs near 70% leaves room for unscheduled textbook or exam outlays.
+          </p>
+        </div>
+      </div>
+
+      {/* Ledger Observations */}
+      <div className="space-y-4 min-w-0">
+        <h2 className="text-[16px] font-medium text-ink-primary">
+          Ledger observations
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
+          {insights.map((ins, idx) => (
+            <div
+              key={idx}
+              className="p-4 sm:p-5 rounded-xl surface-card space-y-1.5 min-w-0"
+            >
+              <div className="flex items-center justify-between gap-2 text-[13px] min-w-0">
+                <h3 className="font-medium text-ink-primary truncate min-w-0">{ins.title}</h3>
+                <span
+                  className={`text-[12px] font-mono shrink-0 ${
+                    ins.type === 'alert'
+                      ? 'text-negative'
+                      : ins.type === 'success'
+                      ? 'text-positive'
+                      : 'text-ink-muted'
+                  }`}
+                >
+                  {ins.type === 'alert'
+                    ? 'Attention'
+                    : ins.type === 'success'
+                    ? 'On track'
+                    : 'Note'}
+                </span>
+              </div>
+              <p className="text-[13px] text-ink-secondary leading-relaxed break-words">
+                {ins.message}
+              </p>
+            </div>
+          ))}
         </div>
       </div>
     </div>

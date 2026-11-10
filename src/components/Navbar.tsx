@@ -5,8 +5,7 @@ import {
   Moon,
   LogOut,
   Menu,
-  GraduationCap,
-  Bot,
+  MessageSquare,
 } from 'lucide-react';
 import { User } from '../types.ts';
 import logo from '../assets/logo.png';
@@ -33,40 +32,46 @@ export const Navbar: React.FC<NavbarProps> = ({
   onCurrencyChange,
 }) => {
   return (
-    <header className="h-14 border-b border-slate-800 bg-slate-900/95 backdrop-blur-md sticky top-0 z-30 px-4 md:px-6 flex items-center justify-between gap-8 transition-colors select-none">
-      {/* Zone 1: Brand Wordmark (Single text element, no adjacent badges) */}
-      <div className="flex items-center gap-3 shrink-0">
+    <header className="min-h-14 border-b hairline-border surface-deep sticky top-0 z-30 px-3 sm:px-4 md:px-6 py-2 flex items-center justify-between gap-2 sm:gap-4 select-none w-full min-w-0">
+      {/* Zone 1: Brand Wordmark */}
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink-0">
         <button
+          type="button"
           onClick={onToggleMobileMenu}
-          className="md:hidden p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
-          aria-label="Toggle Navigation Menu"
+          className="md:hidden h-8 w-8 shrink-0 flex items-center justify-center text-ink-muted hover:text-ink-primary rounded-lg hover:bg-[var(--bg-raised)] transition-colors"
+          aria-label="Toggle navigation menu"
         >
-          <Menu className="w-4 h-4" />
+          <Menu className="w-4 h-4" strokeWidth={1.5} />
         </button>
 
-        <a href="#dashboard" className="flex flex-col items-center justify-center group gap-0.5">
-          <img src={logo} alt="CostCurve" className="w-6 h-6 rounded-md"/>
-          <span className="font-extrabold text-white text-[10px] tracking-tight whitespace-nowrap">
+        <a href="#dashboard" className="flex items-center gap-2 min-w-0 shrink-0">
+          <img
+            src={logo}
+            alt="CostCurve"
+            referrerPolicy="no-referrer"
+            className="w-6 h-6 rounded-md object-contain shrink-0"
+          />
+          <span className="font-medium text-ink-primary text-[15px] sm:text-[16px] leading-none tracking-tight whitespace-nowrap">
             CostCurve
           </span>
         </a>
       </div>
 
-      {/* Zone 2: Contextual Navigation Info (Quiet unboxed student metadata) */}
-      <div className="hidden lg:flex items-center gap-2 text-xs text-slate-400 truncate">
-        <span className="text-slate-300 font-medium truncate">{user.collegeName || 'Student Campus'}</span>
-        <span aria-hidden="true" className="text-slate-600">·</span>
-        <span className="truncate">{user.degreeSemester || 'Degree Program'}</span>
+      {/* Zone 2: Quiet Unboxed Academic Context */}
+      <div className="hidden lg:flex items-center gap-2 text-[13px] text-ink-muted min-w-0 truncate">
+        <span className="text-ink-secondary truncate">{user.collegeName || 'Student campus'}</span>
+        <span aria-hidden="true">·</span>
+        <span className="truncate">{user.degreeSemester || 'Current semester'}</span>
       </div>
 
-      {/* Zone 3: Actions (Currency, Theme, AI Advisor & Primary Action) */}
-      <div className="flex items-center gap-2.5 shrink-0">
-        {/* Currency Selector */}
+      {/* Zone 3: Quiet Chrome Controls & Single Primary Action */}
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
         <select
           value={currency}
           onChange={(e) => onCurrencyChange(e.target.value)}
-          className="bg-slate-950 border border-slate-800 text-xs text-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-teal-500 font-mono transition-colors cursor-pointer"
-          title="Select active currency"
+          aria-label="Active currency"
+          className="h-8 input-field text-xs rounded-lg px-1.5 sm:px-2.5 font-mono cursor-pointer shrink-0"
+          title="Active currency"
         >
           <option value="₹">₹ INR</option>
           <option value="$">$ USD</option>
@@ -76,47 +81,49 @@ export const Navbar: React.FC<NavbarProps> = ({
           <option value="A$">A$ AUD</option>
         </select>
 
-        {/* AI Financial Advisor Trigger */}
         <button
+          type="button"
           onClick={onOpenAI}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/80 hover:bg-slate-800 text-teal-300 border border-slate-700/80 rounded-lg text-xs font-medium transition-colors whitespace-nowrap shrink-0"
-          title="Consult AI Financial Advisor"
+          className="h-8 px-2 sm:px-3 btn-secondary rounded-lg text-xs font-normal flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0"
+          title="Open budget advisor"
+          aria-label="Open budget advisor"
         >
-          <Bot className="w-3.5 h-3.5 text-teal-400" />
-          <span className="hidden sm:inline">Ask Advisor</span>
+          <MessageSquare className="w-3.5 h-3.5 text-ink-muted shrink-0" strokeWidth={1.5} />
+          <span className="hidden sm:inline">Advisor</span>
         </button>
 
-        {/* Primary Action Button */}
         <button
+          type="button"
           onClick={() => onOpenAddTx('expense')}
-          className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg text-xs transition-colors shadow-sm whitespace-nowrap shrink-0"
+          className="h-8 px-2.5 sm:px-3.5 btn-primary rounded-lg text-xs font-medium flex items-center justify-center gap-1 whitespace-nowrap shrink-0"
         >
-          <Plus className="w-3.5 h-3.5" />
-          <span>New Entry</span>
+          <Plus className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} />
+          <span className="hidden xs:inline sm:inline">New entry</span>
+          <span className="xs:hidden sm:hidden">Add</span>
         </button>
 
-        {/* Theme Toggle */}
         <button
+          type="button"
           onClick={onToggleTheme}
-          className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
-          title="Toggle light / dark mode"
-          aria-label="Toggle theme"
+          className="h-8 w-8 shrink-0 flex items-center justify-center text-ink-muted hover:text-ink-primary rounded-lg hover:bg-[var(--bg-raised)] transition-colors"
+          title="Switch theme"
+          aria-label="Switch theme"
         >
           {user.theme === 'light' ? (
-            <Moon className="w-4 h-4 text-slate-300" />
+            <Moon className="w-4 h-4" strokeWidth={1.5} />
           ) : (
-            <Sun className="w-4 h-4 text-amber-300" />
+            <Sun className="w-4 h-4" strokeWidth={1.5} />
           )}
         </button>
 
-        {/* Logout */}
         <button
+          type="button"
           onClick={onLogout}
-          className="p-1.5 text-slate-400 hover:text-red-400 rounded-lg hover:bg-slate-800 transition-colors"
+          className="h-8 w-8 shrink-0 flex items-center justify-center text-ink-muted hover:text-negative rounded-lg hover:bg-[var(--bg-raised)] transition-colors"
           title="Sign out"
           aria-label="Sign out"
         >
-          <LogOut className="w-4 h-4" />
+          <LogOut className="w-4 h-4" strokeWidth={1.5} />
         </button>
       </div>
     </header>

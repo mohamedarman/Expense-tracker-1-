@@ -1,11 +1,5 @@
-import React, { useState } from 'react';
-import {
-  Send,
-  X,
-  Bot,
-  User as UserIcon,
-  Calculator,
-} from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Send, X } from 'lucide-react';
 import { api } from '../api.ts';
 import { User } from '../types.ts';
 
@@ -17,59 +11,74 @@ interface AssistantModalProps {
 }
 
 interface Message {
+  id: string;
   role: 'user' | 'assistant';
   text: string;
   calculation?: string;
 }
 
 export const AssistantModal: React.FC<AssistantModalProps> = ({
-  user,
   currency,
   isOpen,
   onClose,
 }) => {
   const [messages, setMessages] = useState<Message[]>([
     {
+      id: 'welcome',
       role: 'assistant',
-      text: `Hello ${user.name}! I am your CostCurve AI Student Advisor. I'm connected directly to your ledger to answer questions about your monthly budget, daily safe-to-spend limit, hostel dues, and categories. What would you like to know?`,
+      text: 'Ask about your monthly summary, highest expense category, safe daily spend limit, hostel dues, or whether you can afford a specific purchase.',
     },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  }, [messages, loading, isOpen]);
 
   if (!isOpen) return null;
 
   const quickPrompts = [
-    'What is my safe daily spending limit?',
-    'Which category is my highest expense?',
-    'Summarize my spending this month.',
-    'Can I afford a 2,000 outing this weekend?',
+    'Monthly summary',
+    'Highest expense category',
+    'Safe daily spend limit',
+    `Can I afford a ${currency}2,000 outing?`,
   ];
 
   const handleSend = async (questionText?: string) => {
-    const q = (questionText || input).trim();
+    const q = (questionText ?? input).trim();
     if (!q || loading) return;
 
-    setInput('');
-    setMessages((prev) => [...prev, { role: 'user', text: q }]);
+    if (!questionText) {
+      setInput('');
+    }
+    const userMsgId = `user-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    setMessages((prev) => [...prev, { id: userMsgId, role: 'user', text: q }]);
     setLoading(true);
 
     try {
       const res = await api.askAI(q);
+      const replyId = `assistant-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
       setMessages((prev) => [
         ...prev,
         {
+          id: replyId,
           role: 'assistant',
           text: res.answer,
           calculation: res.deterministicCalculation,
         },
       ]);
     } catch (err: any) {
+      const errId = `err-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
       setMessages((prev) => [
         ...prev,
         {
+          id: errId,
           role: 'assistant',
-          text: `Sorry, I encountered an issue analyzing your records: ${err.message}`,
+          text: `Unable to analyze records: ${err.message || 'Unknown error'}`,
         },
       ]);
     } finally {
@@ -78,116 +87,100 @@ export const AssistantModal: React.FC<AssistantModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 font-sans">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full h-[600px] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-3 sm:p-4 font-sans">
+      <div className="surface-card rounded-xl max-w-xl w-full max-h-[calc(100dvh-1.5rem)] sm:h-[580px] flex flex-col overflow-hidden min-w-0">
         {/* Header */}
-        <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-300">
-              <Bot className="w-5 h-5 text-teal-400" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
-                Financial Advisor
-                <span className="text-slate-500">·</span>
-                <span className="text-[11px] font-mono text-teal-400 font-medium">
-                  Ledger Grounded
-                </span>
-              </h3>
-              <p className="text-[11px] text-slate-400">
-                Grounded in your actual transactions &amp; student allowance budget
-              </p>
-            </div>
+        <div className="p-3.5 sm:p-4 border-b hairline-border flex items-center justify-between gap-2 surface-deep shrink-0">
+          <div className="space-y-0.5 min-w-0">
+            <h3 className="text-[15px] font-medium text-ink-primary truncate">
+              Budget advisor
+            </h3>
+            <p className="text-[12px] text-ink-muted truncate">
+              Deterministic calculations from your transaction ledger
+            </p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
-            <X className="w-5 h-5" />
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close budget advisor"
+            className="text-ink-muted hover:text-ink-primary p-1.5 shrink-0 rounded-lg"
+          >
+            <X className="w-4 h-4" strokeWidth={1.5} />
           </button>
         </div>
 
-        {/* Chat Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3.5 select-text">
-          {messages.map((m, idx) => (
+        {/* Messages */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-3.5 sm:p-4 space-y-3 select-text">
+          {messages.map((m) => (
             <div
-              key={idx}
-              className={`flex gap-2.5 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              key={m.id}
+              className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
-              {m.role === 'assistant' && (
-                <div className="w-7 h-7 rounded-lg bg-teal-500/15 border border-teal-500/25 flex items-center justify-center text-teal-300 shrink-0 mt-0.5">
-                  <Bot className="w-4 h-4" />
-                </div>
-              )}
               <div
-                className={`max-w-[85%] rounded-2xl p-3.5 text-xs leading-relaxed space-y-2 ${
+                className={`max-w-[90%] sm:max-w-[85%] min-w-0 rounded-lg p-3 sm:p-3.5 text-[13px] leading-relaxed space-y-2 break-words ${
                   m.role === 'user'
-                    ? 'bg-emerald-600 text-white rounded-tr-none'
-                    : 'bg-slate-800/80 border border-slate-700/60 text-slate-200 rounded-tl-none'
+                    ? 'surface-active-row text-ink-primary border hairline-border'
+                    : 'surface-deep text-ink-primary border hairline-border'
                 }`}
               >
-                <div className="whitespace-pre-line">{m.text}</div>
+                <div className="whitespace-pre-line break-words">{m.text}</div>
                 {m.calculation && (
-                  <div className="pt-2 border-t border-slate-700/60 text-[10px] text-teal-300 tabular-nums flex items-center gap-1.5">
-                    <Calculator className="w-3 h-3 text-teal-400 shrink-0" />
-                    <span>{m.calculation}</span>
+                  <div className="pt-2 border-t hairline-border text-[11px] sm:text-[12px] font-mono text-ink-secondary tabular-nums break-words">
+                    {m.calculation}
                   </div>
                 )}
               </div>
-              {m.role === 'user' && (
-                <div className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 mt-0.5">
-                  <UserIcon className="w-4 h-4" />
-                </div>
-              )}
             </div>
           ))}
 
           {loading && (
-            <div className="flex gap-2.5 justify-start">
-              <div className="w-7 h-7 rounded-lg bg-teal-500/15 border border-teal-500/25 flex items-center justify-center text-teal-300 shrink-0">
-                <Bot className="w-4 h-4" />
-              </div>
-              <div className="bg-slate-800/80 border border-slate-700/60 rounded-2xl p-3 text-xs text-slate-400 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-teal-400" />
-                <span>Auditing ledger and computing answers...</span>
+            <div className="flex justify-start">
+              <div className="surface-deep border hairline-border rounded-lg px-3.5 py-2.5 text-[12px] font-mono text-ink-muted">
+                Computing from ledger...
               </div>
             </div>
           )}
+          <div ref={messagesEndRef} />
         </div>
 
-        {/* Quick Prompts */}
-        <div className="px-4 py-2 border-t border-slate-800 bg-slate-950/40 flex items-center gap-1.5 overflow-x-auto scrollbar-none">
-          {quickPrompts.map((qp, i) => (
+        {/* Suggested Question Buttons */}
+        <div className="px-3.5 sm:px-4 py-2.5 border-t hairline-border surface-deep flex flex-wrap items-center gap-1.5 shrink-0">
+          {quickPrompts.map((qp) => (
             <button
-              key={i}
+              key={qp}
+              type="button"
               onClick={() => handleSend(qp)}
               disabled={loading}
-              className="text-[11px] px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60 whitespace-nowrap transition-colors"
+              className="min-h-[28px] px-2.5 py-1 rounded-md btn-secondary text-[12px] text-left leading-tight disabled:opacity-40"
             >
               {qp}
             </button>
           ))}
         </div>
 
-        {/* Input Bar */}
+        {/* Input */}
         <form
           onSubmit={(e) => {
             e.preventDefault();
             handleSend();
           }}
-          className="p-3 border-t border-slate-800 bg-slate-950 flex items-center gap-2"
+          className="p-3 border-t hairline-border surface-deep flex items-center gap-2 shrink-0 min-w-0"
         >
           <input
             type="text"
-            placeholder="Ask anything about your money, budget, or spending..."
+            placeholder="Ask a question about your ledger..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             disabled={loading}
-            className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-teal-500"
+            className="flex-1 min-w-0 h-9 input-field rounded-lg px-3 text-[13px]"
           />
           <button
             type="submit"
             disabled={loading || !input.trim()}
-            className="p-2 bg-teal-500 hover:bg-teal-600 disabled:opacity-40 text-slate-950 font-bold rounded-xl transition-colors"
+            aria-label="Send question"
+            className="h-9 w-9 shrink-0 flex items-center justify-center btn-primary rounded-lg disabled:opacity-40"
           >
-            <Send className="w-4 h-4" />
+            <Send className="w-4 h-4" strokeWidth={1.5} />
           </button>
         </form>
       </div>

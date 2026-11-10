@@ -1,15 +1,8 @@
 import React, { useState } from 'react';
 import {
-  Target,
   Plus,
-  AlertTriangle,
   CheckCircle2,
-  Calendar,
-  TrendingUp,
   Trash2,
-  ArrowRight,
-  ShieldAlert,
-  Coins,
   X,
 } from 'lucide-react';
 import { User, BudgetResponse, SavingsGoal, Category } from '../types.ts';
@@ -32,7 +25,6 @@ export const BudgetsGoalsView: React.FC<BudgetsGoalsViewProps> = ({
   categories,
   onRefresh,
 }) => {
-  // Modal states
   const [showBudgetModal, setShowBudgetModal] = useState(false);
   const [selectedCatId, setSelectedCatId] = useState<string>('');
   const [budgetAmount, setBudgetAmount] = useState<string>('');
@@ -52,12 +44,13 @@ export const BudgetsGoalsView: React.FC<BudgetsGoalsViewProps> = ({
   const overall = budgets?.overall;
   const expenseCategories = categories.filter((c) => c.kind === 'expense');
 
-  // Semester calculations
   const now = new Date();
-  const semesterEnd = user.semesterEndDate ? new Date(user.semesterEndDate) : new Date(now.getFullYear(), 11, 20);
+  const semesterEnd = user.semesterEndDate
+    ? new Date(user.semesterEndDate)
+    : new Date(now.getFullYear(), 11, 20);
   const diffTime = Math.max(0, semesterEnd.getTime() - now.getTime());
   const semesterDaysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  const semesterBudget = user.semesterBudget || 60000;
+  const semesterBudget = Math.round(user.semesterBudget || 60000);
 
   const handleSaveBudget = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,7 +97,9 @@ export const BudgetsGoalsView: React.FC<BudgetsGoalsViewProps> = ({
         targetAmount: target,
         currentAmount: goalInitial ? parseFloat(goalInitial) : 0,
         category: goalCategory,
-        targetDate: goalTargetDate || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        targetDate:
+          goalTargetDate ||
+          new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       });
       setShowGoalModal(false);
       setGoalTitle('');
@@ -145,227 +140,245 @@ export const BudgetsGoalsView: React.FC<BudgetsGoalsViewProps> = ({
   };
 
   return (
-    <div className="space-y-8 pb-12">
+    <div className="space-y-8 pb-12 font-sans w-full min-w-0">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-white tracking-tight">Budgets &amp; Savings Goals</h1>
-          <p className="text-xs text-slate-400">
-            Enforce spending limits, monitor category utilization, and save for college milestones
-          </p>
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 min-w-0">
+        <div className="space-y-1 min-w-0">
+          <div className="text-[12px] font-mono text-ink-muted">
+            Allowance caps and targets
+          </div>
+          <h1 className="text-[24px] sm:text-[28px] font-medium text-ink-primary tracking-tight leading-tight">
+            Budgets and goals
+          </h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
+            type="button"
+            onClick={() => setShowGoalModal(true)}
+            className="h-9 px-3.5 btn-secondary rounded-lg text-[13px] font-normal flex items-center gap-2 whitespace-nowrap"
+          >
+            <Plus className="w-4 h-4 text-ink-muted shrink-0" strokeWidth={1.5} />
+            <span>New goal</span>
+          </button>
+          <button
+            type="button"
             onClick={() => {
               setSelectedCatId('');
               setBudgetAmount(overall?.limit ? String(overall.limit) : '15000');
               setShowBudgetModal(true);
             }}
-            className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-semibold rounded-lg text-xs flex items-center gap-1.5 transition-colors shadow"
+            className="h-9 px-4 btn-primary rounded-lg text-[13px] font-medium flex items-center gap-2 whitespace-nowrap"
           >
-            <Plus className="w-3.5 h-3.5" /> Set Budget
-          </button>
-          <button
-            onClick={() => setShowGoalModal(true)}
-            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-teal-300 border border-slate-700/80 rounded-lg text-xs flex items-center gap-1.5 transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5" /> Add Goal
+            <Plus className="w-4 h-4 shrink-0" strokeWidth={1.75} />
+            <span>Set budget</span>
           </button>
         </div>
       </div>
 
-      {/* Top Cards: Monthly & Semester Budgets */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Monthly Overall */}
-        <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800/80 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Target className="w-4 h-4 text-emerald-400" />
-              <h2 className="text-sm font-bold text-white">Monthly Overall Budget</h2>
-            </div>
-            <span className={`text-xs font-semibold font-mono ${
-              overall?.isExceeded
-                ? 'text-rose-400'
+      {/* Top Summary Row: Monthly & Semester Budgets */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 min-w-0">
+        <div className="p-4 sm:p-6 rounded-xl surface-card space-y-4 min-w-0">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-[13px]">
+            <h2 className="font-medium text-ink-primary">Monthly overall budget</h2>
+            <span
+              className={`font-mono text-[12px] ${
+                overall?.isExceeded
+                  ? 'text-negative'
+                  : overall?.isWarning
+                  ? 'text-warning'
+                  : 'text-ink-muted'
+              }`}
+            >
+              {overall?.isExceeded
+                ? 'Over limit'
                 : overall?.isWarning
-                ? 'text-amber-400'
-                : 'text-emerald-400'
-            }`}>
-              {overall?.isExceeded ? 'Exceeded' : overall?.isWarning ? 'Warning (>80%)' : 'On Track'}
+                ? 'Above 80% threshold'
+                : 'Within limit'}
             </span>
           </div>
 
-          <div className="flex items-baseline justify-between">
-            <div>
-              <div className="text-2xl font-black text-white font-mono tabular-nums">
-                {currency}{(overall?.spent ?? 0).toLocaleString()}
-                <span className="text-xs text-slate-400 font-normal ml-1">
-                  / {currency}{(overall?.limit ?? 15000).toLocaleString()}
+          <div className="flex flex-wrap items-baseline justify-between gap-2 min-w-0">
+            <div className="space-y-1 min-w-0">
+              <div className="text-[24px] sm:text-[28px] font-medium text-ink-primary font-mono tabular-nums leading-none break-words">
+                {currency}{Math.round(overall?.spent ?? 0).toLocaleString()}
+                <span className="text-[14px] text-ink-muted font-normal ml-2">
+                  / {currency}{Math.round(overall?.limit ?? 15000).toLocaleString()}
                 </span>
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-[12px] text-ink-secondary font-mono tabular-nums">
                 {overall?.remaining && overall.remaining >= 0
-                  ? `${currency}${overall.remaining.toLocaleString()} remaining`
-                  : `Over budget by ${currency}${Math.abs(overall?.remaining || 0).toLocaleString()}`}
+                  ? `${currency}${Math.round(overall.remaining).toLocaleString()} remaining this month`
+                  : `Exceeded by ${currency}${Math.round(Math.abs(overall?.remaining || 0)).toLocaleString()}`}
               </p>
             </div>
-            <div className="text-right">
-              <span className="text-xl font-mono font-bold text-slate-200 tabular-nums">
-                {overall?.usage ?? 0}%
-              </span>
-            </div>
+            <span className="text-[18px] font-mono font-medium text-ink-primary tabular-nums shrink-0">
+              {overall?.usage ?? 0}%
+            </span>
           </div>
 
-          <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+          <div className="w-full h-1.5 surface-deep rounded-sm overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all duration-500 ${
-                overall?.isExceeded ? 'bg-rose-500' : overall?.isWarning ? 'bg-amber-400' : 'bg-emerald-500'
+              className={`h-full transition-colors ${
+                overall?.isExceeded
+                  ? 'bg-[var(--negative)]'
+                  : overall?.isWarning
+                  ? 'bg-[var(--warning)]'
+                  : 'bg-[var(--accent)]'
               }`}
               style={{ width: `${Math.min(100, overall?.usage || 0)}%` }}
             />
           </div>
         </div>
 
-        {/* Semester Budget */}
-        <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800/80 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-teal-400" />
-              <h2 className="text-sm font-bold text-white">Semester Academic Budget</h2>
-            </div>
-            <span className="text-xs text-slate-400 font-mono">
+        <div className="p-4 sm:p-6 rounded-xl surface-card space-y-4 min-w-0">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-[13px]">
+            <h2 className="font-medium text-ink-primary">Semester academic budget</h2>
+            <span className="text-[12px] text-ink-muted font-mono tabular-nums">
               {semesterDaysLeft} days remaining
             </span>
           </div>
 
-          <div className="flex items-baseline justify-between">
-            <div>
-              <div className="text-2xl font-black text-teal-300">
+          <div className="flex flex-wrap items-baseline justify-between gap-2 min-w-0">
+            <div className="space-y-1 min-w-0">
+              <div className="text-[24px] sm:text-[28px] font-medium text-ink-primary font-mono tabular-nums leading-none break-words">
                 {currency}{semesterBudget.toLocaleString()}
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Target end date: <span className="font-mono text-slate-300">{user.semesterEndDate || 'Dec 15, 2026'}</span>
+              <p className="text-[12px] text-ink-secondary">
+                Term ends <span className="font-mono text-ink-primary">{user.semesterEndDate || '2026-12-15'}</span>
               </p>
             </div>
-            <div className="text-right">
-              <span className="text-xs text-slate-400">Term velocity</span>
-              <div className="text-sm font-mono font-bold text-slate-200">
-                ~{currency}{semesterDaysLeft > 0 ? Math.round(semesterBudget / semesterDaysLeft) : 0}/day
-              </div>
+            <div className="text-right space-y-0.5 shrink-0">
+              <span className="text-[12px] text-ink-muted block">Term pace</span>
+              <span className="text-[14px] font-mono font-medium text-ink-primary tabular-nums">
+                {currency}{semesterDaysLeft > 0 ? Math.round(semesterBudget / semesterDaysLeft).toLocaleString() : 0} / day
+              </span>
             </div>
           </div>
 
-          <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-teal-500 rounded-full"
-              style={{ width: '45%' }}
-            />
+          <div className="w-full h-1.5 surface-deep rounded-sm overflow-hidden">
+            <div className="h-full bg-[var(--text-secondary)]" style={{ width: '45%' }} />
           </div>
         </div>
       </div>
 
       {/* Category Budgets Grid */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-bold text-white">Category Spending Limits</h2>
-            <p className="text-xs text-slate-400">Prevent overspending in food, rent, shopping, and entertainment</p>
+      <div className="space-y-4 min-w-0">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="space-y-0.5 min-w-0">
+            <h2 className="text-[16px] font-medium text-ink-primary">Category spending limits</h2>
+            <p className="text-[13px] text-ink-secondary">
+              Monthly caps for food, housing, transit, and study materials
+            </p>
           </div>
           <button
+            type="button"
             onClick={() => {
               setSelectedCatId(expenseCategories[0]?.id || '');
               setBudgetAmount('3000');
               setShowBudgetModal(true);
             }}
-            className="text-xs text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1"
+            className="text-[13px] text-ink-secondary hover:text-ink-primary font-normal transition-colors shrink-0"
           >
-            + Add Category Limit
+            + Add category limit
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 min-w-0">
           {budgets?.categoryBudgets && budgets.categoryBudgets.length > 0 ? (
             budgets.categoryBudgets.map((b) => {
               const cat = categories.find((c) => c.id === b.categoryId);
               return (
                 <div
                   key={b.id}
-                  className="p-4 rounded-xl bg-slate-900/80 border border-slate-800/80 space-y-3 relative group"
+                  className="p-4 sm:p-5 rounded-xl surface-card space-y-3 group min-w-0"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-200 truncate">
+                  <div className="flex items-center justify-between gap-2 min-w-0">
+                    <span className="text-[14px] font-medium text-ink-primary truncate min-w-0">
                       {cat?.name || 'Category'}
                     </span>
-                    <div className="flex items-center gap-1">
-                      <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
-                        b.isExceeded
-                          ? 'bg-rose-500/20 text-rose-300'
-                          : b.isWarning
-                          ? 'bg-amber-500/20 text-amber-300'
-                          : 'bg-emerald-500/20 text-emerald-300'
-                      }`}>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span
+                        className={`text-[12px] font-mono tabular-nums ${
+                          b.isExceeded
+                            ? 'text-negative'
+                            : b.isWarning
+                            ? 'text-warning'
+                            : 'text-ink-muted'
+                        }`}
+                      >
                         {b.usage}%
                       </span>
                       <button
+                        type="button"
                         onClick={() => handleDeleteBudget(b.id)}
-                        className="text-slate-500 hover:text-rose-400 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                        title="Delete limit"
+                        className="text-ink-muted hover:text-negative p-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                        title="Remove limit"
                       >
-                        <Trash2 className="w-3 h-3" />
+                        <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
                       </button>
                     </div>
                   </div>
 
-                  <div className="flex items-baseline justify-between text-xs">
-                    <span className="text-slate-400 font-mono">
-                      Spent: <strong className="text-white">{currency}{b.spent.toLocaleString()}</strong>
+                  <div className="flex items-baseline justify-between gap-2 text-[12px] font-mono tabular-nums">
+                    <span className="text-ink-primary">
+                      {currency}{Math.round(b.spent).toLocaleString()} spent
                     </span>
-                    <span className="text-slate-400 font-mono">
-                      Limit: {currency}{b.amount.toLocaleString()}
+                    <span className="text-ink-muted">
+                      of {currency}{Math.round(b.amount).toLocaleString()}
                     </span>
                   </div>
 
-                  <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                  <div className="w-full h-1 surface-deep rounded-sm overflow-hidden">
                     <div
-                      className={`h-full rounded-full transition-all duration-300 ${
-                        b.isExceeded ? 'bg-rose-500' : b.isWarning ? 'bg-amber-400' : 'bg-emerald-500'
+                      className={`h-full transition-colors ${
+                        b.isExceeded
+                          ? 'bg-[var(--negative)]'
+                          : b.isWarning
+                          ? 'bg-[var(--warning)]'
+                          : 'bg-[var(--accent)]'
                       }`}
                       style={{ width: `${Math.min(100, b.usage)}%` }}
                     />
                   </div>
 
-                  <div className="text-[11px] text-slate-400 flex items-center justify-between">
+                  <div className="text-[12px] text-ink-muted font-mono flex items-center justify-between gap-2 tabular-nums">
                     <span>
-                      {b.remaining >= 0 ? `${currency}${b.remaining.toLocaleString()} left` : `Exceeded by ${currency}${Math.abs(b.remaining).toLocaleString()}`}
+                      {b.remaining >= 0
+                        ? `${currency}${Math.round(b.remaining).toLocaleString()} remaining`
+                        : `${currency}${Math.round(Math.abs(b.remaining)).toLocaleString()} over`}
                     </span>
-                    <span className="text-[10px] text-slate-500">Alert @ {b.warningThreshold}%</span>
+                    <span>Alert at {b.warningThreshold}%</span>
                   </div>
                 </div>
               );
             })
           ) : (
-            <div className="col-span-full py-8 text-center text-xs text-slate-500 bg-slate-900/40 rounded-xl border border-slate-800/60">
-              No category-specific limits configured yet. Click "+ Add Category Limit" to set one.
+            <div className="col-span-full py-10 text-center text-[13px] text-ink-muted surface-card rounded-xl">
+              No category-specific limits configured yet
             </div>
           )}
         </div>
       </div>
 
       {/* Savings Goals Section */}
-      <div className="space-y-4 pt-4 border-t border-slate-800/80">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-bold text-white">Student Savings Goals</h2>
-            <p className="text-xs text-slate-400">Save for laptops, textbooks, certifications, and emergency funds</p>
+      <div className="space-y-4 pt-4 border-t hairline-border min-w-0">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="space-y-0.5 min-w-0">
+            <h2 className="text-[16px] font-medium text-ink-primary">Savings goals</h2>
+            <p className="text-[13px] text-ink-secondary">
+              Dedicated funds for hardware, textbooks, certifications, and emergencies
+            </p>
           </div>
           <button
+            type="button"
             onClick={() => setShowGoalModal(true)}
-            className="text-xs text-teal-400 hover:text-teal-300 font-semibold flex items-center gap-1"
+            className="text-[13px] text-ink-secondary hover:text-ink-primary font-normal transition-colors shrink-0"
           >
-            + Create Goal
+            + Create goal
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 min-w-0">
           {goals.length > 0 ? (
             goals.map((goal) => {
               const pct = Math.min(100, Math.round((goal.currentAmount / goal.targetAmount) * 100));
@@ -374,65 +387,68 @@ export const BudgetsGoalsView: React.FC<BudgetsGoalsViewProps> = ({
               return (
                 <div
                   key={goal.id}
-                  className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800/80 space-y-3 relative group"
+                  className="p-4 sm:p-5 rounded-xl surface-card space-y-3.5 group min-w-0"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-white flex items-center gap-2">
-                      <Coins className="w-4 h-4 text-teal-400" />
+                  <div className="flex items-center justify-between gap-2 min-w-0">
+                    <span className="text-[14px] font-medium text-ink-primary truncate min-w-0">
                       {goal.title}
                     </span>
                     <button
+                      type="button"
                       onClick={() => handleDeleteGoal(goal.id)}
-                      className="text-slate-500 hover:text-rose-400 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="text-ink-muted hover:text-negative p-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0"
                       title="Delete goal"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
                     </button>
                   </div>
 
-                  <div className="flex items-baseline justify-between">
-                    <div>
-                      <div className="text-xl font-bold font-mono text-emerald-400">
-                        {currency}{goal.currentAmount.toLocaleString()}
-                        <span className="text-xs text-slate-400 font-normal ml-1">
-                          / {currency}{goal.targetAmount.toLocaleString()}
+                  <div className="flex items-baseline justify-between gap-2 min-w-0">
+                    <div className="space-y-0.5 min-w-0">
+                      <div className="text-[20px] font-medium font-mono text-ink-primary tabular-nums break-words">
+                        {currency}{Math.round(goal.currentAmount).toLocaleString()}
+                        <span className="text-[12px] text-ink-muted font-normal ml-1.5">
+                          / {currency}{Math.round(goal.targetAmount).toLocaleString()}
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
-                        Target date: <span className="font-mono text-slate-300">{goal.targetDate}</span>
+                      <p className="text-[12px] text-ink-muted font-mono truncate">
+                        {goal.category} · Target {goal.targetDate}
                       </p>
                     </div>
-                    <span className="font-mono font-bold text-slate-200 text-sm">
+                    <span className="font-mono font-medium text-ink-secondary text-[13px] tabular-nums shrink-0">
                       {pct}%
                     </span>
                   </div>
 
-                  <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                  <div className="w-full h-1 surface-deep rounded-sm overflow-hidden">
                     <div
-                      className={`h-full rounded-full transition-colors ${
-                        isDone ? 'bg-emerald-400' : 'bg-teal-400'
+                      className={`h-full transition-colors ${
+                        isDone ? 'bg-[var(--positive)]' : 'bg-[var(--accent)]'
                       }`}
                       style={{ width: `${pct}%` }}
                     />
                   </div>
 
-                  <div className="pt-2 flex items-center justify-between">
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-medium">
-                      {goal.category}
+                  <div className="pt-1 flex items-center justify-between gap-2 text-[12px]">
+                    <span className="text-ink-muted font-mono tabular-nums truncate">
+                      {isDone
+                        ? 'Target reached'
+                        : `${currency}${Math.round(goal.targetAmount - goal.currentAmount).toLocaleString()} to go`}
                     </span>
                     {!isDone ? (
                       <button
+                        type="button"
                         onClick={() => {
                           setDepositGoal(goal);
                           setDepositAmount('500');
                         }}
-                        className="px-2.5 py-1 bg-teal-500/15 hover:bg-teal-500/25 text-teal-300 border border-teal-500/30 rounded-lg text-xs font-semibold transition-colors"
+                        className="h-7 px-2.5 btn-secondary rounded-md text-[12px] font-normal shrink-0"
                       >
-                        + Deposit
+                        Add funds
                       </button>
                     ) : (
-                      <span className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Achieved!
+                      <span className="text-[12px] text-positive flex items-center gap-1 shrink-0">
+                        <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={1.5} /> Completed
                       </span>
                     )}
                   </div>
@@ -440,8 +456,8 @@ export const BudgetsGoalsView: React.FC<BudgetsGoalsViewProps> = ({
               );
             })
           ) : (
-            <div className="col-span-full py-8 text-center text-xs text-slate-500 bg-slate-900/40 rounded-xl border border-slate-800/60">
-              No savings goals created. Set a goal for books, a new laptop, or travel!
+            <div className="col-span-full py-10 text-center text-[13px] text-ink-muted surface-card rounded-xl">
+              No savings goals created yet
             </div>
           )}
         </div>
@@ -449,52 +465,63 @@ export const BudgetsGoalsView: React.FC<BudgetsGoalsViewProps> = ({
 
       {/* Set Budget Modal */}
       {showBudgetModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <form onSubmit={handleSaveBudget} className="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-white">Configure Spending Limit</h3>
-              <button type="button" onClick={() => setShowBudgetModal(false)} className="text-slate-400 hover:text-white">
-                <X className="w-4 h-4" />
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <form
+            onSubmit={handleSaveBudget}
+            className="surface-card rounded-xl max-w-sm w-full max-h-[calc(100dvh-1.5rem)] overflow-y-auto p-5 space-y-4 min-w-0"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-[15px] font-medium text-ink-primary">Set spending limit</h3>
+              <button
+                type="button"
+                onClick={() => setShowBudgetModal(false)}
+                className="text-ink-muted hover:text-ink-primary shrink-0"
+              >
+                <X className="w-4 h-4" strokeWidth={1.5} />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block text-slate-400 mb-1">Scope</label>
+            <div className="space-y-3 text-[13px]">
+              <div className="space-y-1.5">
+                <label className="block text-ink-secondary">Scope</label>
                 <select
                   value={selectedCatId}
                   onChange={(e) => setSelectedCatId(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200"
+                  className="w-full min-w-0 h-9 input-field rounded-lg px-3"
                 >
-                  <option value="">Overall Monthly Budget</option>
+                  <option value="">Overall monthly budget</option>
                   {expenseCategories.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
                   ))}
                 </select>
               </div>
 
-              <div>
-                <label className="block text-slate-400 mb-1">Budget Amount ({currency})</label>
+              <div className="space-y-1.5">
+                <label className="block text-ink-secondary">Monthly limit ({currency})</label>
                 <input
                   type="number"
                   step="0.01"
                   required
-                  placeholder="e.g. 5000"
+                  placeholder="5000"
                   value={budgetAmount}
                   onChange={(e) => setBudgetAmount(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 font-mono"
+                  className="w-full min-w-0 h-9 input-field rounded-lg px-3 font-mono tabular-nums"
                 />
               </div>
 
-              <div>
-                <label className="block text-slate-400 mb-1">Warning Alert Threshold ({budgetThreshold}%)</label>
+              <div className="space-y-1.5">
+                <label className="block text-ink-secondary">
+                  Warning threshold ({budgetThreshold}%)
+                </label>
                 <input
                   type="range"
                   min="50"
                   max="95"
                   value={budgetThreshold}
                   onChange={(e) => setBudgetThreshold(parseInt(e.target.value, 10))}
-                  className="w-full accent-emerald-500"
+                  className="w-full accent-[var(--accent)]"
                 />
               </div>
             </div>
@@ -503,15 +530,15 @@ export const BudgetsGoalsView: React.FC<BudgetsGoalsViewProps> = ({
               <button
                 type="button"
                 onClick={() => setShowBudgetModal(false)}
-                className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg text-xs"
+                className="h-8 px-3.5 btn-secondary rounded-lg text-[12px]"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-semibold rounded-lg text-xs"
+                className="h-8 px-4 btn-primary rounded-lg text-[12px] font-medium"
               >
-                Save Limit
+                Save limit
               </button>
             </div>
           </form>
@@ -520,76 +547,83 @@ export const BudgetsGoalsView: React.FC<BudgetsGoalsViewProps> = ({
 
       {/* Add Goal Modal */}
       {showGoalModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <form onSubmit={handleCreateGoal} className="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-white">Create Savings Goal</h3>
-              <button type="button" onClick={() => setShowGoalModal(false)} className="text-slate-400 hover:text-white">
-                <X className="w-4 h-4" />
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <form
+            onSubmit={handleCreateGoal}
+            className="surface-card rounded-xl max-w-sm w-full max-h-[calc(100dvh-1.5rem)] overflow-y-auto p-5 space-y-4 min-w-0"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-[15px] font-medium text-ink-primary">New savings goal</h3>
+              <button
+                type="button"
+                onClick={() => setShowGoalModal(false)}
+                className="text-ink-muted hover:text-ink-primary shrink-0"
+              >
+                <X className="w-4 h-4" strokeWidth={1.5} />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block text-slate-400 mb-1">Goal Title</label>
+            <div className="space-y-3 text-[13px]">
+              <div className="space-y-1.5">
+                <label className="block text-ink-secondary">Goal title</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Laptop, Semester Books, Trip"
+                  placeholder="Laptop, semester books, travel"
                   value={goalTitle}
                   onChange={(e) => setGoalTitle(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200"
+                  className="w-full min-w-0 h-9 input-field rounded-lg px-3"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-slate-400 mb-1">Target Amount ({currency})</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="block text-ink-secondary">Target ({currency})</label>
                   <input
                     type="number"
                     step="0.01"
                     required
-                    placeholder="e.g. 25000"
+                    placeholder="25000"
                     value={goalTarget}
                     onChange={(e) => setGoalTarget(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 font-mono"
+                    className="w-full min-w-0 h-9 input-field rounded-lg px-3 font-mono tabular-nums"
                   />
                 </div>
-                <div>
-                  <label className="block text-slate-400 mb-1">Already Saved ({currency})</label>
+                <div className="space-y-1.5">
+                  <label className="block text-ink-secondary">Saved so far ({currency})</label>
                   <input
                     type="number"
                     step="0.01"
                     placeholder="0"
                     value={goalInitial}
                     onChange={(e) => setGoalInitial(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 font-mono"
+                    className="w-full min-w-0 h-9 input-field rounded-lg px-3 font-mono tabular-nums"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-slate-400 mb-1">Category</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="block text-ink-secondary">Category</label>
                   <select
                     value={goalCategory}
                     onChange={(e) => setGoalCategory(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200"
+                    className="w-full min-w-0 h-9 input-field rounded-lg px-3"
                   >
-                    <option value="Tech">Tech / Hardware</option>
-                    <option value="Books">Books &amp; Study</option>
-                    <option value="Emergency">Emergency Fund</option>
-                    <option value="Travel">Travel / Home</option>
+                    <option value="Tech">Tech and hardware</option>
+                    <option value="Books">Books and study</option>
+                    <option value="Emergency">Emergency reserve</option>
+                    <option value="Travel">Travel</option>
                     <option value="Certification">Certification</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-slate-400 mb-1">Target Date</label>
+                <div className="space-y-1.5">
+                  <label className="block text-ink-secondary">Target date</label>
                   <input
                     type="date"
                     value={goalTargetDate}
                     onChange={(e) => setGoalTargetDate(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200"
+                    className="w-full min-w-0 h-9 input-field rounded-lg px-3 font-mono"
                   />
                 </div>
               </div>
@@ -599,15 +633,15 @@ export const BudgetsGoalsView: React.FC<BudgetsGoalsViewProps> = ({
               <button
                 type="button"
                 onClick={() => setShowGoalModal(false)}
-                className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg text-xs"
+                className="h-8 px-3.5 btn-secondary rounded-lg text-[12px]"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-1.5 bg-teal-500 hover:bg-teal-600 text-slate-950 font-semibold rounded-lg text-xs"
+                className="h-8 px-4 btn-primary rounded-lg text-[12px] font-medium"
               >
-                Save Goal
+                Create goal
               </button>
             </div>
           </form>
@@ -616,37 +650,46 @@ export const BudgetsGoalsView: React.FC<BudgetsGoalsViewProps> = ({
 
       {/* Deposit to Goal Modal */}
       {depositGoal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <form onSubmit={handleDepositSubmit} className="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-white">Deposit to {depositGoal.title}</h3>
-              <button type="button" onClick={() => setDepositGoal(null)} className="text-slate-400 hover:text-white">
-                <X className="w-4 h-4" />
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <form
+            onSubmit={handleDepositSubmit}
+            className="surface-card rounded-xl max-w-sm w-full max-h-[calc(100dvh-1.5rem)] overflow-y-auto p-5 space-y-4 min-w-0"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-[15px] font-medium text-ink-primary truncate">
+                Add funds to {depositGoal.title}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setDepositGoal(null)}
+                className="text-ink-muted hover:text-ink-primary shrink-0"
+              >
+                <X className="w-4 h-4" strokeWidth={1.5} />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block text-slate-400 mb-1">Deposit Amount ({currency})</label>
+            <div className="space-y-3 text-[13px]">
+              <div className="space-y-1.5">
+                <label className="block text-ink-secondary">Deposit amount ({currency})</label>
                 <input
                   type="number"
                   step="0.01"
                   required
-                  placeholder="e.g. 500"
+                  placeholder="500"
                   value={depositAmount}
                   onChange={(e) => setDepositAmount(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 font-mono text-base"
+                  className="w-full min-w-0 h-9 input-field rounded-lg px-3 font-mono tabular-nums"
                 />
               </div>
 
-              <label className="flex items-center gap-2 text-slate-300 cursor-pointer pt-1">
+              <label className="flex items-center gap-2 text-ink-secondary cursor-pointer pt-1 text-[12px]">
                 <input
                   type="checkbox"
                   checked={recordDepositTx}
                   onChange={(e) => setRecordDepositTx(e.target.checked)}
-                  className="rounded accent-emerald-500"
+                  className="rounded accent-[var(--accent)]"
                 />
-                <span>Also record as an expense transaction from Primary Bank</span>
+                <span>Record as an expense from Primary Bank</span>
               </label>
             </div>
 
@@ -654,15 +697,15 @@ export const BudgetsGoalsView: React.FC<BudgetsGoalsViewProps> = ({
               <button
                 type="button"
                 onClick={() => setDepositGoal(null)}
-                className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg text-xs"
+                className="h-8 px-3.5 btn-secondary rounded-lg text-[12px]"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-1.5 bg-teal-500 hover:bg-teal-600 text-slate-950 font-semibold rounded-lg text-xs"
+                className="h-8 px-4 btn-primary rounded-lg text-[12px] font-medium"
               >
-                Confirm Deposit
+                Confirm deposit
               </button>
             </div>
           </form>

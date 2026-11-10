@@ -913,35 +913,351 @@ export class ClientStore {
 
   public askAI(question: string): { answer: string; deterministicCalculation: string } {
     const user = this.getCurrentUser();
-    if (!user) return { answer: 'Please sign in to access your student financial assistant.', deterministicCalculation: 'Unauthenticated' };
+    if (!user) return { answer: 'Please sign in to access your financial advisor.', deterministicCalculation: 'Unauthenticated' };
 
     const curr = user.currency || '₹';
     const allTxs = this.db.transactions.filter((t) => t.userId === user.id);
-    const q = question.toLowerCase();
+    const now = new Date();
+    const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const daysRemaining = Math.max(1, daysInMonth - now.getDate() + 1);
 
-    if (allTxs.length === 0) {
+    const monthTxs = allTxs.filter((t) => t.date.startsWith(yearMonth));
+    const totalIncome = monthTxs.filter((t) => t.kind === 'income').reduce((sum, t) => sum + t.amount, 0);
+    const totalExpense = monthTxs.filter((t) => t.kind === 'expense').reduce((sum, t) => sum + t.amount, 0);
+    const netSavings = totalIncome - totalExpense;
+    const budgetRemaining = user.monthlyBudget - totalExpense;
+    const safeDailySpend = Math.max(0, Math.round(budgetRemaining / daysRemaining));
+
+    const catMap = new Map<string, { name: string; spent: number; count: number }>();
+    for (const tx of monthTxs) {
+      if (tx.kind === 'expense') {
+        const cat = this.db.categories.find((c) => c.id === tx.categoryId);
+        const name = cat?.name || 'Uncategorized';
+        const existing = catMap.get(name) || { name, spent: 0, count: 0 };
+        existing.spent += tx.amount;
+        existing.count += 1;
+        catMap.set(name, existing);
+      }
+    }
+    const categoryTotals = Array.from(catMap.values()).sort((a, b) => b.spent - a.spent);
+    const topCategory = categoryTotals[0];
+
+    const allTimeCatMap = new Map<string, { name: string; spent: number; count: number }>();
+    for (const tx of allTxs) {
+      if (tx.kind === 'expense') {
+        const cat = this.db.categories.find((c) => c.id === tx.categoryId);
+        const name = cat?.name || 'Uncategorized';
+        const existing = allTimeCatMap.get(name) || { name, spent: 0, count: 0 };
+        existing.spent += tx.amount;
+        existing.count += 1;
+        allTimeCatMap.set(name, existing);
+      }
+    }
+    const allTimeCategoryTotals = Array.from(allTimeCatMap.values()).sort((a, b) => b.spent - a.spent);
+    const allTimeTopCategory = allTimeCategoryTotals[0];
+
+    const allTimeExpense = allTxs.filter((t) => t.kind === 'expense').reduce((sum, t) => sum + t.amount, 0);
+    const allTimeIncome = allTxs.filter((t) => t.kind === 'income').reduce((sum, t) => sum + t.amount, 0);
+
+    const activeBills = this.db.recurringPayments.filter((b) => b.userId === user.id && b.status === 'active');
+    const goals = this.db.savingsGoals.filter((g) => g.userId === user.id);
+    const debts = this.db.debts.filter((d) => d.userId === user.id && d.status === 'pending');
+
+    const q = question.trim().toLowerCase();
+    const cleanedForNumbers = question.replace(/,/g, '');
+    const numberMatches = cleanedForNumbers.match(/\d+(?:\.\d+)?/g);
+    const parsedAmount = numberMatches ? parseFloat(numberMatches[0]) : null;
+
+    // 1. Affordability / purchase simulation ("Can I afford a ₹2,000 outing?", "Should I buy...", etc.)
+    if (
+      q.includes('afford') ||
+      q.includes('outing') ||
+      q.includes('buy') ||
+      q.includes('purchase') ||
+      q.includes('spend on') ||
+      (parsedAmount !== null && parsedAmount > 0 && (q.includes('can i') || q.includes('should i') || q.includes('worth')))
+    ) {
+      const targetAmount = parsedAmount && parsedAmount > 0 ? parsedAmount : 2000;
+      const postPurchaseRemaining = budgetRemaining - targetAmount;
+      const postPurchaseDaily = Math.max(0, Math.round(postPurchaseRemaining / daysRemaining));
+
+      if (allTxs.length === 0) {
+        const canAffordEmpty = user.monthlyBudget >= targetAmount;
+        return {
+          answer: canAffordEmpty
+            ? `There is no transaction history recorded yet, so analyzing against your baseline monthly budget of ${curr}${user.monthlyBudget.toLocaleString()}:\n\n• Requested spend: ${curr}${targetAmount.toLocaleString()}\n• Budget after spend: ${curr}${postPurchaseRemaining.toLocaleString()}\n• Adjusted daily limit (${daysRemaining} days left): ${curr}${postPurchaseDaily.toLocaleString()}/day\n\nYou can cover this within your ${curr}${user.monthlyBudget.toLocaleString()} target, though logging your fixed expenses (rent, mess, or bills) first will give a stricter margin.`
+            : `There are no transactions recorded yet, and a ${curr}${targetAmount.toLocaleString()} spend already exceeds your configured monthly budget of ${curr}${user.monthlyBudget.toLocaleString()} by ${curr}${Math.abs(postPurchaseRemaining).toLocaleString()}. Increase your monthly budget or reduce the planned spend.`,
+          deterministicCalculation: `Baseline budget ${curr}${user.monthlyBudget.toLocaleString()} − ${curr}${targetAmount.toLocaleString()} = ${curr}${postPurchaseRemaining.toLocaleString()} (${allTxs.length} ledger entries)`,
+        };
+      }
+
+      const canAfford = postPurchaseRemaining >= 0;
       return {
-        answer: `Hello ${user.name}! Your account is currently clean with 0 recorded transactions.\n\n• Monthly Budget Target: ${curr}${user.monthlyBudget.toLocaleString()}\n• Once you log your first income or expense, I will provide real-time category breakdowns, daily velocities, and savings advice.`,
-        deterministicCalculation: `Active Ledger: 0 records for ${user.email}`,
+        answer: canAfford
+          ? `Yes, you can fit a ${curr}${targetAmount.toLocaleString()} spend into your current month's budget:\n\n• Current remaining budget: ${curr}${budgetRemaining.toLocaleString()} (of ${curr}${user.monthlyBudget.toLocaleString()})\n• Remaining after ${curr}${targetAmount.toLocaleString()} spend: ${curr}${postPurchaseRemaining.toLocaleString()}\n• Safe daily allowance shift: ${curr}${safeDailySpend.toLocaleString()}/day → ${curr}${postPurchaseDaily.toLocaleString()}/day across the next ${daysRemaining} days.`
+          : `No — spending ${curr}${targetAmount.toLocaleString()} right now would push you over your monthly budget target:\n\n• Current remaining budget: ${curr}${budgetRemaining.toLocaleString()} (spent ${curr}${totalExpense.toLocaleString()} of ${curr}${user.monthlyBudget.toLocaleString()})\n• Projected deficit after spend: -${curr}${Math.abs(postPurchaseRemaining).toLocaleString()}\n• Safe daily allowance right now: ${curr}${safeDailySpend.toLocaleString()}/day.`,
+        deterministicCalculation: `Remaining ${curr}${budgetRemaining.toLocaleString()} − ${curr}${targetAmount.toLocaleString()} = ${curr}${postPurchaseRemaining.toLocaleString()} (${postPurchaseDaily.toLocaleString()}/day for ${daysRemaining}d)`,
       };
     }
 
-    const now = new Date();
-    const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const monthTxs = allTxs.filter((t) => t.date.startsWith(yearMonth));
-    const totalExpense = monthTxs.filter((t) => t.kind === 'expense').reduce((sum, t) => sum + t.amount, 0);
-    const totalIncome = monthTxs.filter((t) => t.kind === 'income').reduce((sum, t) => sum + t.amount, 0);
-    const remaining = Math.max(0, user.monthlyBudget - totalExpense);
+    // 2. Highest / top expense category or category breakdown
+    if (
+      q.includes('highest') ||
+      q.includes('top') ||
+      q.includes('category') ||
+      q.includes('categories') ||
+      q.includes('most on') ||
+      q.includes('where did my money') ||
+      q.includes('breakdown')
+    ) {
+      if (allTxs.length === 0) {
+        return {
+          answer: `Insufficient transaction data to rank expense categories — your ledger currently has 0 recorded transactions.\n\nLog at least one expense (for example under Food & Mess, Hostel & Rent, or Transport) to compute your highest spending category and percentage share.`,
+          deterministicCalculation: `0 expense categories active (${yearMonth})`,
+        };
+      }
 
-    let answer = `Here is your verified personal ledger overview:\n\n• Total Income This Month: ${curr}${totalIncome.toLocaleString()}\n• Total Expenses This Month: ${curr}${totalExpense.toLocaleString()}\n• Remaining Monthly Budget: ${curr}${remaining.toLocaleString()}`;
+      if (categoryTotals.length === 0 && allTimeCategoryTotals.length > 0) {
+        const share = allTimeExpense > 0 ? Math.round((allTimeTopCategory.spent / allTimeExpense) * 100) : 0;
+        const breakdownLines = allTimeCategoryTotals
+          .slice(0, 4)
+          .map((c, idx) => `${idx + 1}. ${c.name}: ${curr}${c.spent.toLocaleString()} (${c.count} tx)`)
+          .join('\n');
+        return {
+          answer: `You have no expenses logged in ${yearMonth} yet, so here is your all-time highest expense category breakdown:\n\n• Highest category: ${allTimeTopCategory.name} at ${curr}${allTimeTopCategory.spent.toLocaleString()} (${share}% of all-time spend)\n\nCategory ranking:\n${breakdownLines}`,
+          deterministicCalculation: `All-time top category: ${allTimeTopCategory.name} = ${curr}${allTimeTopCategory.spent.toLocaleString()} / ${curr}${allTimeExpense.toLocaleString()}`,
+        };
+      }
 
-    if (q.includes('budget') || q.includes('save') || q.includes('how much')) {
-      answer += `\n\nBased on your ledger, you have ${monthTxs.length} transactions recorded this month. Sticking to essential needs preserves your emergency savings.`;
+      if (!topCategory) {
+        return {
+          answer: `You have ${allTxs.length} income transaction(s) logged, but 0 expense records so far. Record an expense transaction to see your highest spending category.`,
+          deterministicCalculation: `Total expenses: ${curr}0 across ${allTxs.length} ledger records`,
+        };
+      }
+
+      const topShare = totalExpense > 0 ? Math.round((topCategory.spent / totalExpense) * 100) : 0;
+      const list = categoryTotals
+        .slice(0, 5)
+        .map((c, idx) => {
+          const pct = totalExpense > 0 ? Math.round((c.spent / totalExpense) * 100) : 0;
+          return `${idx + 1}. ${c.name}: ${curr}${c.spent.toLocaleString()} (${pct}% · ${c.count} ${c.count === 1 ? 'entry' : 'entries'})`;
+        })
+        .join('\n');
+
+      return {
+        answer: `Your highest expense category in ${yearMonth} is ${topCategory.name}, accounting for ${curr}${topCategory.spent.toLocaleString()} (${topShare}% of your ${curr}${totalExpense.toLocaleString()} monthly spend).\n\nMonthly category ranking:\n${list}`,
+        deterministicCalculation: `Top category (${yearMonth}): ${topCategory.name} = ${curr}${topCategory.spent.toLocaleString()} (${topShare}% of ${curr}${totalExpense.toLocaleString()})`,
+      };
+    }
+
+    // 3. Safe daily spend limit / allowance / burn rate
+    if (
+      q.includes('daily') ||
+      q.includes('safe') ||
+      q.includes('limit') ||
+      q.includes('allowance') ||
+      q.includes('per day') ||
+      q.includes('today') ||
+      q.includes('burn')
+    ) {
+      if (allTxs.length === 0) {
+        const baselineDaily = Math.max(0, Math.round(user.monthlyBudget / daysRemaining));
+        return {
+          answer: `No expenses have been logged in ${yearMonth} yet. Based on your full monthly budget target of ${curr}${user.monthlyBudget.toLocaleString()} and ${daysRemaining} days left in the month:\n\n• Safe daily spend limit: ${curr}${baselineDaily.toLocaleString()}/day\n• Spent this month: ${curr}0\n• Remaining budget: ${curr}${user.monthlyBudget.toLocaleString()}`,
+          deterministicCalculation: `${curr}${user.monthlyBudget.toLocaleString()} ÷ ${daysRemaining} days left = ${curr}${baselineDaily.toLocaleString()}/day`,
+        };
+      }
+
+      return {
+        answer:
+          budgetRemaining > 0
+            ? `Your safe daily spend limit for the remaining ${daysRemaining} days of ${yearMonth} is ${curr}${safeDailySpend.toLocaleString()}/day.\n\n• Monthly budget target: ${curr}${user.monthlyBudget.toLocaleString()}\n• Spent so far (${monthTxs.filter((t) => t.kind === 'expense').length} expenses): ${curr}${totalExpense.toLocaleString()}\n• Remaining budget: ${curr}${budgetRemaining.toLocaleString()}`
+            : `Your safe daily spend limit is ${curr}0/day because your monthly expenses (${curr}${totalExpense.toLocaleString()}) have already exceeded your ${curr}${user.monthlyBudget.toLocaleString()} budget by ${curr}${Math.abs(budgetRemaining).toLocaleString()}. Pause non-essential spending for the remaining ${daysRemaining} days of ${yearMonth}.`,
+        deterministicCalculation: `(${curr}${user.monthlyBudget.toLocaleString()} − ${curr}${totalExpense.toLocaleString()}) ÷ ${daysRemaining} days = ${curr}${safeDailySpend.toLocaleString()}/day`,
+      };
+    }
+
+    // 4. Monthly summary / overview / report / status
+    if (
+      q.includes('summary') ||
+      q.includes('monthly') ||
+      q.includes('overview') ||
+      q.includes('report') ||
+      q.includes('status') ||
+      q.includes('how am i doing')
+    ) {
+      if (allTxs.length === 0) {
+        return {
+          answer: `Monthly summary for ${yearMonth} — insufficient transaction data (0 records logged):\n\n• Monthly budget target: ${curr}${user.monthlyBudget.toLocaleString()}\n• Total income (${yearMonth}): ${curr}0\n• Total expenses (${yearMonth}): ${curr}0\n• Remaining budget: ${curr}${user.monthlyBudget.toLocaleString()}\n• Safe daily allowance (${daysRemaining}d left): ${curr}${safeDailySpend.toLocaleString()}/day\n\nAdd your stipend, allowance, or daily expenses using the "New entry" button to populate your monthly cashflow metrics.`,
+          deterministicCalculation: `${yearMonth}: 0 transactions | Budget ${curr}${user.monthlyBudget.toLocaleString()} intact`,
+        };
+      }
+
+      const budgetUsedPct = user.monthlyBudget > 0 ? Math.round((totalExpense / user.monthlyBudget) * 100) : 0;
+      return {
+        answer: `Monthly summary for ${yearMonth} (${monthTxs.length} transactions this month, ${allTxs.length} total):\n\n• Total income: ${curr}${totalIncome.toLocaleString()}\n• Total expenses: ${curr}${totalExpense.toLocaleString()} (${budgetUsedPct}% of ${curr}${user.monthlyBudget.toLocaleString()} budget)\n• Net cashflow: ${netSavings >= 0 ? '+' : '-'}${curr}${Math.abs(netSavings).toLocaleString()}\n• Remaining budget: ${curr}${budgetRemaining.toLocaleString()}\n• Safe daily limit (${daysRemaining}d left): ${curr}${safeDailySpend.toLocaleString()}/day\n• Top expense category: ${topCategory ? `${topCategory.name} (${curr}${topCategory.spent.toLocaleString()})` : 'None this month'}`,
+        deterministicCalculation: `Income ${curr}${totalIncome.toLocaleString()} − Expense ${curr}${totalExpense.toLocaleString()} = Net ${curr}${netSavings.toLocaleString()} (${budgetUsedPct}% budget used)`,
+      };
+    }
+
+    // 5. Recurring bills, hostel dues, rent, subscriptions
+    if (
+      q.includes('bill') ||
+      q.includes('hostel') ||
+      q.includes('rent') ||
+      q.includes('mess') ||
+      q.includes('subscription') ||
+      q.includes('recurring') ||
+      q.includes('due')
+    ) {
+      const billTotal = activeBills.reduce((sum, b) => sum + b.amount, 0);
+
+      if (activeBills.length === 0) {
+        return {
+          answer: `You currently have 0 active recurring bills or subscriptions configured.\n\n• Active recurring commitments: 0 (${curr}0)\n\nOpen the Recurring bills view to track recurring hostel fees, mess bills, rent, or streaming memberships.`,
+          deterministicCalculation: `0 active recurring obligations (${curr}0/month)`,
+        };
+      }
+
+      const billLines = activeBills
+        .slice(0, 5)
+        .map((b) => `• ${b.title}: ${curr}${b.amount.toLocaleString()} (${b.frequency}, next due ${b.nextDueDate})`)
+        .join('\n');
+
+      return {
+        answer: `Here are your active recurring commitments (${activeBills.length} active):\n\n${billLines}\n\nTotal scheduled amount: ${curr}${billTotal.toLocaleString()}.`,
+        deterministicCalculation: `${activeBills.length} active recurring commitments = ${curr}${billTotal.toLocaleString()}`,
+      };
+    }
+
+    // 6. Savings goals / targets
+    if (q.includes('goal') || q.includes('saving') || q.includes('target')) {
+      if (goals.length === 0) {
+        return {
+          answer: `You have 0 savings goals configured right now.\n\n• Current month net cashflow: ${netSavings >= 0 ? '+' : '-'}${curr}${Math.abs(netSavings).toLocaleString()}\n• Visit the Budgets and goals tab to set up a target (such as an emergency fund, laptop upgrade, or semester fee reserve).`,
+          deterministicCalculation: `0 active savings goals | Monthly net cashflow: ${curr}${netSavings.toLocaleString()}`,
+        };
+      }
+
+      const totalSaved = goals.reduce((s, g) => s + g.currentAmount, 0);
+      const totalTarget = goals.reduce((s, g) => s + g.targetAmount, 0);
+      const goalLines = goals
+        .map((g) => {
+          const pct = g.targetAmount > 0 ? Math.round((g.currentAmount / g.targetAmount) * 100) : 0;
+          return `• ${g.title}: ${curr}${g.currentAmount.toLocaleString()} / ${curr}${g.targetAmount.toLocaleString()} (${pct}%)`;
+        })
+        .join('\n');
+
+      return {
+        answer: `You are tracking ${goals.length} savings ${goals.length === 1 ? 'goal' : 'goals'}:\n\n${goalLines}\n\nTotal saved across goals: ${curr}${totalSaved.toLocaleString()} of ${curr}${totalTarget.toLocaleString()}.`,
+        deterministicCalculation: `Goals progress: ${curr}${totalSaved.toLocaleString()} / ${curr}${totalTarget.toLocaleString()} (${goals.length} goals)`,
+      };
+    }
+
+    // 7. Peer debts / splits / IOUs
+    if (q.includes('debt') || q.includes('owe') || q.includes('iou') || q.includes('split') || q.includes('friend') || q.includes('borrow') || q.includes('lent')) {
+      const owedToYou = debts.filter((d) => d.type === 'owes_you').reduce((s, d) => s + d.amount, 0);
+      const youOwe = debts.filter((d) => d.type === 'you_owe').reduce((s, d) => s + d.amount, 0);
+
+      if (debts.length === 0) {
+        return {
+          answer: `You have no unsettled peer IOUs or bill splits in the Campus hub.\n\n• Owed to you: ${curr}0\n• You owe others: ${curr}0`,
+          deterministicCalculation: `0 unsettled IOUs | Net peer balance: ${curr}0`,
+        };
+      }
+
+      const netPeer = owedToYou - youOwe;
+      return {
+        answer: `Unsettled peer splits & IOUs (${debts.length} open):\n\n• Classmates owe you: ${curr}${owedToYou.toLocaleString()}\n• You owe others: ${curr}${youOwe.toLocaleString()}\n• Net peer position: ${netPeer >= 0 ? '+' : '-'}${curr}${Math.abs(netPeer).toLocaleString()}`,
+        deterministicCalculation: `Owed to you ${curr}${owedToYou.toLocaleString()} − You owe ${curr}${youOwe.toLocaleString()} = ${curr}${netPeer.toLocaleString()}`,
+      };
+    }
+
+    // 8. Income / earnings / stipend
+    if (q.includes('income') || q.includes('earn') || q.includes('stipend') || q.includes('salary') || q.includes('pocket money')) {
+      const incomeCount = monthTxs.filter((t) => t.kind === 'income').length;
+      if (allTxs.length === 0) {
+        return {
+          answer: `There is no income recorded in your ledger yet (0 transactions).\n\nLog your monthly allowance, scholarship, or part-time income using "New entry" → "Income" to track your net savings rate.`,
+          deterministicCalculation: `Income (${yearMonth}): ${curr}0 across 0 entries`,
+        };
+      }
+      return {
+        answer: `Income summary for ${yearMonth}:\n\n• Monthly income: ${curr}${totalIncome.toLocaleString()} (${incomeCount} ${incomeCount === 1 ? 'entry' : 'entries'})\n• All-time recorded income: ${curr}${allTimeIncome.toLocaleString()}\n• Net savings this month (income minus expenses): ${netSavings >= 0 ? '+' : '-'}${curr}${Math.abs(netSavings).toLocaleString()}`,
+        deterministicCalculation: `${yearMonth} income: ${curr}${totalIncome.toLocaleString()} | All-time income: ${curr}${allTimeIncome.toLocaleString()}`,
+      };
+    }
+
+    // 9. Recent transactions / last spent
+    if (q.includes('recent') || q.includes('last') || q.includes('latest') || q.includes('history') || q.includes('transactions')) {
+      if (allTxs.length === 0) {
+        return {
+          answer: `Your transaction history is empty (0 records). Add your first expense or income entry to see recent ledger activity.`,
+          deterministicCalculation: `0 transactions in ledger`,
+        };
+      }
+      const sorted = [...allTxs].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
+      const lines = sorted
+        .map((t) => `• ${t.date} — ${t.description || t.categoryName}: ${t.kind === 'income' ? '+' : '-'}${curr}${t.amount.toLocaleString()} (${t.paymentMethod})`)
+        .join('\n');
+      return {
+        answer: `Here are your ${sorted.length} most recent transactions (out of ${allTxs.length} total):\n\n${lines}`,
+        deterministicCalculation: `Showing ${sorted.length} of ${allTxs.length} total ledger entries`,
+      };
+    }
+
+    // 10. Specific category or keyword search in ledger
+    const matchedCategory = this.db.categories.find(
+      (c) => (c.userId === null || c.userId === user.id) && q.includes(c.name.toLowerCase())
+    );
+    if (matchedCategory) {
+      const catTxs = allTxs.filter((t) => t.categoryId === matchedCategory.id);
+      const catTotal = catTxs.reduce((s, t) => s + t.amount, 0);
+      return {
+        answer:
+          catTxs.length > 0
+            ? `You have ${catTxs.length} transaction(s) in "${matchedCategory.name}" totaling ${curr}${catTotal.toLocaleString()}.`
+            : `You have 0 transactions recorded under "${matchedCategory.name}" so far.`,
+        deterministicCalculation: `Category "${matchedCategory.name}": ${catTxs.length} entries = ${curr}${catTotal.toLocaleString()}`,
+      };
+    }
+
+    const words = q.split(/\s+/).filter((w) => w.length >= 4 && !['what', 'when', 'where', 'which', 'much', 'many', 'have', 'this', 'that', 'with', 'from', 'your', 'about', 'tell', 'show', 'give'].includes(w));
+    if (words.length > 0 && allTxs.length > 0) {
+      const matchingTxs = allTxs.filter((t) =>
+        words.some(
+          (w) =>
+            t.description.toLowerCase().includes(w) ||
+            (t.merchant || '').toLowerCase().includes(w) ||
+            (t.notes || '').toLowerCase().includes(w)
+        )
+      );
+      if (matchingTxs.length > 0) {
+        const matchSum = matchingTxs.reduce((s, t) => s + t.amount, 0);
+        const lines = matchingTxs
+          .slice(0, 4)
+          .map((t) => `• ${t.date} — ${t.description || t.categoryName}: ${curr}${t.amount.toLocaleString()}`)
+          .join('\n');
+        return {
+          answer: `Found ${matchingTxs.length} matching ledger ${matchingTxs.length === 1 ? 'entry' : 'entries'} for "${question}" totaling ${curr}${matchSum.toLocaleString()}:\n\n${lines}`,
+          deterministicCalculation: `Matched ${matchingTxs.length} entries = ${curr}${matchSum.toLocaleString()}`,
+        };
+      }
+    }
+
+    // 11. General fallback tailored to the question and data state
+    if (allTxs.length === 0) {
+      return {
+        answer: `Regarding "${question}": your ledger currently has 0 recorded transactions, so there is insufficient transaction history to compute historical trends.\n\nHere is your current baseline configuration:\n• Monthly budget target: ${curr}${user.monthlyBudget.toLocaleString()}\n• Safe daily allowance (${daysRemaining} days left in ${yearMonth}): ${curr}${safeDailySpend.toLocaleString()}/day\n• Active recurring bills: ${activeBills.length} | Savings goals: ${goals.length}\n\nTry asking "Can I afford a ${curr}2,000 outing?", "Safe daily spend limit", or log a transaction to analyze category totals.`,
+        deterministicCalculation: `Ledger empty (0 transactions) | Baseline budget: ${curr}${user.monthlyBudget.toLocaleString()}`,
+      };
     }
 
     return {
-      answer,
-      deterministicCalculation: `Verified real-time ledger calculation (${allTxs.length} transactions, owner: ${user.email})`,
+      answer: `Analysis for "${question}" based on your ${yearMonth} ledger:\n\n• Monthly expenses: ${curr}${totalExpense.toLocaleString()} across ${monthTxs.filter((t) => t.kind === 'expense').length} entries (budget: ${curr}${user.monthlyBudget.toLocaleString()})\n• Remaining budget: ${curr}${budgetRemaining.toLocaleString()} (${curr}${safeDailySpend.toLocaleString()}/day safe limit for ${daysRemaining} days)\n• Highest category: ${topCategory ? `${topCategory.name} (${curr}${topCategory.spent.toLocaleString()})` : (allTimeTopCategory ? `${allTimeTopCategory.name} (${curr}${allTimeTopCategory.spent.toLocaleString()} all-time)` : 'None')}\n• All-time ledger: ${allTxs.length} total entries (Expenses: ${curr}${allTimeExpense.toLocaleString()}, Income: ${curr}${allTimeIncome.toLocaleString()})`,
+      deterministicCalculation: `Budget ${curr}${user.monthlyBudget.toLocaleString()} − Spent ${curr}${totalExpense.toLocaleString()} = ${curr}${budgetRemaining.toLocaleString()} (${curr}${safeDailySpend.toLocaleString()}/day)`,
     };
   }
 }
