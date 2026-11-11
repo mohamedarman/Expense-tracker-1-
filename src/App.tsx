@@ -18,6 +18,7 @@ import { AdminConsoleView } from './components/AdminConsoleView.tsx';
 import { AssistantModal } from './components/AssistantModal.tsx';
 import { TransactionFormModal } from './components/TransactionFormModal.tsx';
 import { AuthModal } from './components/AuthModal.tsx';
+import { LogoutConfirmModal } from './components/LogoutConfirmModal.tsx';
 import {
   User,
   Transaction,
@@ -58,6 +59,7 @@ export default function App() {
   const [addTxDefaultKind, setAddTxDefaultKind] = useState<TransactionKind>('expense');
   const [txToEdit, setTxToEdit] = useState<Transaction | null>(null);
   const [showAIModal, setShowAIModal] = useState(false);
+  const [showLogoutConfirmModal, setShowLogoutConfirmModal] = useState(false);
 
   const clearUserDataState = useCallback(() => {
     setTransactions([]);
@@ -185,6 +187,7 @@ export default function App() {
   }, [user?.id, user?.status, refreshAllData, clearUserDataState]);
 
   const handleLogout = async () => {
+    setShowLogoutConfirmModal(false);
     clearUserDataState();
     setUser(null);
     setCurrentTab('dashboard');
@@ -292,7 +295,7 @@ export default function App() {
         onOpenAddTx={handleOpenAddTx}
         onOpenAI={() => setShowAIModal(true)}
         onToggleTheme={handleToggleTheme}
-        onLogout={handleLogout}
+        onLogout={() => setShowLogoutConfirmModal(true)}
         onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)}
         currency={currency}
         onCurrencyChange={handleCurrencyChange}
@@ -425,6 +428,14 @@ export default function App() {
         currency={currency}
         isOpen={showAIModal}
         onClose={() => setShowAIModal(false)}
+      />
+
+      {/* Safe Logout Confirmation Modal */}
+      <LogoutConfirmModal
+        isOpen={showLogoutConfirmModal}
+        user={user}
+        onCancel={() => setShowLogoutConfirmModal(false)}
+        onConfirmLogout={handleLogout}
       />
     </div>
   );
