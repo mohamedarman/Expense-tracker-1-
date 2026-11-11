@@ -32,7 +32,8 @@ import {
   TransactionKind,
 } from './types.ts';
 import { api, clearLegacyLocalStorage, ensureUserProfileInFirestore } from './api.ts';
-import { auth } from './firebase.ts';
+import { auth, getRedirectResult } from './firebase.ts';
+import { clientStore } from './clientStore.ts';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -40,7 +41,6 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState<NavTab>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [currency, setCurrency] = useState('₹');
-  const [verificationMsg, setVerificationMsg] = useState<string | null>(null);
 
   // Resource states
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -71,13 +71,41 @@ export default function App() {
     setInsights([]);
   }, []);
 
-  // Subscribe to Firebase Authentication state changes
+  // Subscribe to Firebase Authentication state changes & check local Email session fallback
   useEffect(() => {
     document.documentElement.classList.add('dark');
     clearLegacyLocalStorage();
 
+    // Handle redirect result if mobile browser used signInWithRedirect
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (result?.user) {
+          clientStore.setCurrentUserId(null);
+          const profile = await ensureUserProfileInFirestore(result.user);
+          setUser(profile);
+          setCurrency(profile.currency || '₹');
+        }
+      })
+      .catch(() => {
+        // Ignore redirect check errors when not returning from redirect
+      });
+
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (!fbUser) {
+        // Check if user is authenticated via Email/Password session in clientStore
+        const localUser = clientStore.getCurrentUser();
+        if (localUser) {
+          setUser(localUser);
+          setCurrency(localUser.currency || '₹');
+          if (localUser.theme === 'light') {
+            document.documentElement.classList.remove('dark');
+          } else {
+            document.documentElement.classList.add('dark');
+          }
+          setLoadingAuth(false);
+          return;
+        }
+
         setUser(null);
         clearUserDataState();
         setCurrentTab('dashboard');
@@ -86,6 +114,7 @@ export default function App() {
       }
 
       try {
+        clientStore.setCurrentUserId(null);
         const profile = await ensureUserProfileInFirestore(fbUser);
         setUser(profile);
         setCurrency(profile.currency || '₹');
@@ -106,9 +135,9 @@ export default function App() {
     return () => unsubscribe();
   }, [clearUserDataState]);
 
-  // Fetch all user-scoped Firestore data
+  // Fetch all user-scoped data
   const refreshAllData = useCallback(async () => {
-    if (!user || user.emailVerified === false || user.status === 'suspended') return;
+    if (!user || user.status === 'suspended') return;
     try {
       const [
         txRes,
@@ -147,13 +176,13 @@ export default function App() {
   }, [user]);
 
   useEffect(() => {
-    if (user && user.emailVerified !== false && user.status !== 'suspended') {
+    if (user && user.status !== 'suspended') {
       clearUserDataState();
       refreshAllData();
     } else {
       clearUserDataState();
     }
-  }, [user?.id, user?.emailVerified, user?.status, refreshAllData, clearUserDataState]);
+  }, [user?.id, user?.status, refreshAllData, clearUserDataState]);
 
   const handleLogout = async () => {
     clearUserDataState();
@@ -202,7 +231,7 @@ export default function App() {
       await api.logRecurringTransaction(id);
       refreshAllData();
     } catch (err: any) {
-      alert(err.message);
+      console.error(err.message);
     }
   };
 
@@ -244,69 +273,6 @@ export default function App() {
               type="button"
               onClick={handleLogout}
               className="h-9 px-4 btn-secondary rounded-lg text-[13px]"
-            >
-              Sign out
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Handle unverified email/password accounts before writing to Firestore
-  if (user.emailVerified === false) {
-    return (
-      <div className="min-h-screen surface-page text-ink-primary flex items-center justify-center p-6 font-sans">
-        <div className="max-w-md w-full p-6 rounded-xl surface-card space-y-4 text-[13px]">
-          <div className="text-[12px] font-mono text-[#2dd4bf]">Email verification required</div>
-          <h1 className="text-[20px] font-medium text-ink-primary">
-            Verify your email address
-          </h1>
-          <p className="text-ink-secondary leading-relaxed">
-            To protect your financial ledger under CostCurve&apos;s security rules, please click the verification link sent to <span className="text-ink-primary font-mono">{user.email}</span>, or sign in with Google for instant verification.
-          </p>
-          {verificationMsg && (
-            <div className="p-3 rounded-lg surface-raised text-ink-primary text-[12px]">
-              {verificationMsg}
-            </div>
-          )}
-          <div className="flex flex-wrap items-center gap-2.5 pt-2">
-            <button
-              type="button"
-              onClick={async () => {
-                try {
-                  const res = await api.reloadAndVerifyEmail();
-                  if (res.emailVerified) {
-                    setUser(res.user);
-                  } else {
-                    setVerificationMsg('Email is not verified yet. Please check your inbox and spam folder.');
-                  }
-                } catch (err: any) {
-                  setVerificationMsg(err.message || 'Verification check failed.');
-                }
-              }}
-              className="h-9 px-4 btn-primary rounded-lg text-[13px] font-medium"
-            >
-              I&apos;ve verified my email
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                try {
-                  const res = await api.resendVerificationEmail();
-                  setVerificationMsg(res.message);
-                } catch (err: any) {
-                  setVerificationMsg(err.message || 'Could not resend verification email.');
-                }
-              }}
-              className="h-9 px-3.5 btn-secondary rounded-lg text-[13px]"
-            >
-              Resend link
-            </button>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="h-9 px-3.5 btn-secondary rounded-lg text-[13px]"
             >
               Sign out
             </button>
@@ -405,7 +371,7 @@ export default function App() {
               categories={categories}
               onRefresh={refreshAllData}
               onLogRecurring={handleLogRecurring}
-              />
+            />
           )}
 
           {currentTab === 'analytics' && (

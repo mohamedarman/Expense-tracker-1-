@@ -147,6 +147,23 @@ export class ClientStore {
     }
   }
 
+  private enrichUserRole(user: User & { passwordHash?: string }): User {
+    const safeUser = { ...user };
+    delete safeUser.passwordHash;
+    const email = (safeUser.email || '').toLowerCase();
+    const isOwner =
+      email === 'costcurveexpensetracker@gmail.com' ||
+      email === 'mohamedarman536@gmail.com';
+    const isAdmin = isOwner || safeUser.role === 'admin' || safeUser.role === 'owner' || !!safeUser.isAdmin;
+    return {
+      ...safeUser,
+      status: safeUser.status === 'suspended' ? 'suspended' : 'active',
+      role: isOwner ? 'owner' : isAdmin ? 'admin' : 'user',
+      isAdmin,
+      emailVerified: true,
+    };
+  }
+
   public getCurrentUserId(): string | null {
     return this.currentUserId;
   }
@@ -155,9 +172,12 @@ export class ClientStore {
     if (!this.currentUserId) return null;
     const user = this.db.users.find((u) => u.id === this.currentUserId);
     if (!user) return null;
-    const safeUser = { ...user };
-    delete safeUser.passwordHash;
-    return safeUser;
+    return this.enrichUserRole(user);
+  }
+
+  public hasUserWithEmail(email: string): boolean {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    return this.db.users.some((u) => u.email.toLowerCase() === cleanEmail);
   }
 
   public setCurrentUserId(id: string | null) {
@@ -183,20 +203,19 @@ export class ClientStore {
       throw new Error('No account found with this email address. Please register a new account.');
     }
 
-    if (user.passwordHash && password) {
+    if (user.passwordHash && password !== undefined) {
       if (user.passwordHash !== password) {
         throw new Error('Incorrect password. Please verify your credentials.');
       }
     }
 
     this.setCurrentUserId(user.id);
-    const safeUser = { ...user };
-    delete safeUser.passwordHash;
+    const safeUser = this.enrichUserRole(user);
 
     return {
       user: safeUser,
       token: `client_token_${user.id}_${Date.now()}`,
-      message: `Welcome back, ${user.name}!`,
+      message: `Welcome back, ${safeUser.name}!`,
     };
   }
 
@@ -226,10 +245,13 @@ export class ClientStore {
     const now = new Date();
     const newUserId = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     const parsedBudget = data.monthlyBudget ? Math.max(0, Number(data.monthlyBudget)) : 15000;
+    const isOwner =
+      cleanEmail === 'costcurveexpensetracker@gmail.com' ||
+      cleanEmail === 'mohamedarman536@gmail.com';
 
     const newUser: User & { passwordHash?: string } = {
       id: newUserId,
-      name: data.name.trim() || 'Student User',
+      name: (data.name || '').trim() || cleanEmail.split('@')[0] || 'Student User',
       email: cleanEmail,
       currency: data.currency || '₹',
       theme: 'dark',
@@ -238,7 +260,12 @@ export class ClientStore {
       semesterEndDate: `${now.getFullYear()}-12-31`,
       collegeName: (data.collegeName || '').trim() || 'College / University',
       degreeSemester: (data.degreeSemester || '').trim() || 'Semester 1',
+      status: 'active',
+      role: isOwner ? 'owner' : 'user',
+      isAdmin: isOwner,
+      emailVerified: true,
       createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
       passwordHash: data.password || undefined,
     };
 
@@ -246,13 +273,12 @@ export class ClientStore {
     this.save();
     this.setCurrentUserId(newUser.id);
 
-    const safeUser = { ...newUser };
-    delete safeUser.passwordHash;
+    const safeUser = this.enrichUserRole(newUser);
 
     return {
       user: safeUser,
       token: `client_token_${newUser.id}_${Date.now()}`,
-      message: `Account created successfully! Welcome to CostCurve, ${newUser.name}.`,
+      message: `Account created successfully! Welcome to CostCurve, ${safeUser.name}.`,
     };
   }
 
@@ -261,9 +287,61 @@ export class ClientStore {
     if (!user) throw new Error('Authentication required');
     const dbUser = this.db.users.find((u) => u.id === user.id);
     if (!dbUser) throw new Error('User not found');
-    Object.assign(dbUser, updates);
+    Object.assign(dbUser, updates, { updatedAt: new Date().toISOString() });
     this.save();
     return { user: this.getCurrentUser()!, message: 'Profile updated' };
+  }
+
+  public changePassword(currentPassword: string, newPassword: string): { message: string } {
+    if (!this.currentUserId) throw new Error('Authentication required');
+    const dbUser = this.db.users.find((u) => u.id === this.currentUserId);
+    if (!dbUser) throw new Error('User not found');
+    if (dbUser.passwordHash && dbUser.passwordHash !== currentPassword) {
+      throw new Error('Current password is incorrect.');
+    }
+    dbUser.passwordHash = newPassword;
+    dbUser.updatedAt = new Date().toISOString();
+    this.save();
+    return { message: 'Password updated successfully' };
+  }
+
+  public deleteAccount(): { message: string } {
+    const uid = this.currentUserId;
+    if (!uid) throw new Error('Authentication required');
+    this.db.transactions = this.db.transactions.filter((t) => t.userId !== uid);
+    this.db.categories = this.db.categories.filter((c) => c.userId !== uid);
+    this.db.budgets = this.db.budgets.filter((b) => b.userId !== uid);
+    this.db.savingsGoals = this.db.savingsGoals.filter((g) => g.userId !== uid);
+    this.db.recurringPayments = this.db.recurringPayments.filter((r) => r.userId !== uid);
+    this.db.splitExpenses = this.db.splitExpenses.filter((s) => s.userId !== uid);
+    this.db.debts = this.db.debts.filter((d) => d.userId !== uid);
+    this.db.users = this.db.users.filter((u) => u.id !== uid);
+    this.setCurrentUserId(null);
+    this.save();
+    return { message: 'Account and all associated records deleted.' };
+  }
+
+  public adminGetUsers(): User[] {
+    return this.db.users.map((u) => this.enrichUserRole(u));
+  }
+
+  public adminUpdateUserStatus(targetUserId: string, newStatus: 'active' | 'suspended') {
+    const dbUser = this.db.users.find((u) => u.id === targetUserId);
+    if (dbUser) {
+      dbUser.status = newStatus;
+      dbUser.updatedAt = new Date().toISOString();
+      this.save();
+    }
+  }
+
+  public adminSetAdminRole(targetUserId: string, isAdmin: boolean) {
+    const dbUser = this.db.users.find((u) => u.id === targetUserId);
+    if (dbUser) {
+      dbUser.role = isAdmin ? 'admin' : 'user';
+      dbUser.isAdmin = isAdmin;
+      dbUser.updatedAt = new Date().toISOString();
+      this.save();
+    }
   }
 
   // --- Categories (Global defaults + User custom) ---

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, Mail, User as UserIcon } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, User as UserIcon } from 'lucide-react';
 import { api } from '../api.ts';
 import { User } from '../types.ts';
 import logo from '../assets/logo.png';
@@ -14,6 +14,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [collegeName, setCollegeName] = useState('');
   const [degreeSemester, setDegreeSemester] = useState('Semester 3 (B.Tech CS)');
   const [monthlyBudget, setMonthlyBudget] = useState('15000');
@@ -29,8 +30,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
       const res = await api.loginWithGoogle();
       onSuccess(res.user);
     } catch (err: any) {
-      if (err?.code !== 'auth/popup-closed-by-user') {
-        setError(err?.message || 'Google sign-in failed. Please try again.');
+      if (err?.code !== 'auth/popup-closed-by-user' && err?.code !== 'auth/cancelled-popup-request') {
+        setError(err?.message || 'Google sign-in could not complete. You can also sign in with your email and password below.');
       }
     } finally {
       setGoogleLoading(false);
@@ -43,29 +44,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
     setLoading(true);
 
     try {
+      const cleanEmail = email.trim().toLowerCase();
+      if (!cleanEmail) {
+        throw new Error('Please enter your email address.');
+      }
+      if (password.length < 6) {
+        throw new Error('Password must be at least 6 characters long.');
+      }
+
       if (isRegister) {
-        if (password.length < 8) {
-          throw new Error('Password must be at least 8 characters long.');
-        }
         if (password !== confirmPassword) {
           throw new Error('Passwords do not match.');
         }
         const res = await api.register({
-          name: name.trim(),
-          email: email.trim().toLowerCase(),
+          name: name.trim() || cleanEmail.split('@')[0],
+          email: cleanEmail,
           password,
           collegeName: collegeName.trim() || 'College / University',
-          degreeSemester: degreeSemester.trim(),
+          degreeSemester: degreeSemester.trim() || 'Semester 1',
           monthlyBudget: parseFloat(monthlyBudget) || 15000,
           currency,
         });
         onSuccess(res.user);
       } else {
-        const res = await api.login(email.trim().toLowerCase(), password);
+        const res = await api.login(cleanEmail, password);
         onSuccess(res.user);
       }
     } catch (err: any) {
-      setError(err.message);
+      setError(err?.message || 'Authentication failed. Please check your credentials and try again.');
     } finally {
       setLoading(false);
     }
@@ -247,6 +253,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
                   type="email"
                   required
                   maxLength={254}
+                  autoComplete="email"
                   placeholder="student@college.edu"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -257,19 +264,28 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
 
             <div className="space-y-1.5">
               <label className="block text-ink-secondary">
-                Password {isRegister && <span className="text-ink-muted">(8+ characters)</span>}
+                Password <span className="text-ink-muted">(6+ characters)</span>
               </label>
               <div className="relative">
                 <Lock className="w-4 h-4 absolute left-3 top-2.5 text-ink-muted" strokeWidth={1.5} />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   required
-                  minLength={8}
+                  minLength={6}
+                  autoComplete={isRegister ? 'new-password' : 'current-password'}
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full h-9 pl-9 pr-3 input-field rounded-lg text-[13px]"
+                  className="w-full h-9 pl-9 pr-9 input-field rounded-lg text-[13px]"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute right-2.5 top-2 text-ink-muted hover:text-ink-primary p-0.5"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 
@@ -280,8 +296,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
                   <div className="relative">
                     <Lock className="w-4 h-4 absolute left-3 top-2.5 text-ink-muted" strokeWidth={1.5} />
                     <input
-                      type="password"
+                      type={showPassword ? 'text' : 'password'}
                       required
+                      minLength={6}
+                      autoComplete="new-password"
                       placeholder="••••••••"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
@@ -350,7 +368,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
               className="w-full h-10 btn-secondary rounded-lg text-[13px] font-medium disabled:opacity-50 mt-2"
             >
               {loading
-                ? 'Please wait...'
+                ? 'Signing in...'
                 : isRegister
                 ? 'Create student account'
                 : 'Sign in with email'}

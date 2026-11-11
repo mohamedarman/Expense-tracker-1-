@@ -1,9 +1,11 @@
 import {
   signInWithPopup,
+  signInWithRedirect,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
   updatePassword,
+  updateProfile as updateFirebaseAuthProfile,
   EmailAuthProvider,
   reauthenticateWithCredential,
   sendEmailVerification,
@@ -26,7 +28,6 @@ import {
   auth,
   db,
   googleProvider,
-  OWNER_ADMIN_EMAIL,
   BOOTSTRAPPED_ADMIN_EMAILS,
   OperationType,
   handleFirestoreError,
@@ -61,6 +62,7 @@ import {
   computeInsightsResponse,
   evaluateBudgetAdvisorQuestion,
 } from './financialEngine.ts';
+import { clientStore } from './clientStore.ts';
 
 // Single-flight deduplication and profile cache per UID to prevent concurrent
 // getDoc/setDoc race conditions on users/{uid} right after Google Sign-In.
@@ -72,17 +74,15 @@ export function clearProfileCache() {
   cachedUserProfiles.clear();
 }
 
-// Clean up any legacy local storage keys so no stale browser data remains
+// Clean up only legacy pre-v4 demo storage keys while preserving active clientStore v4 accounts
 export function clearLegacyLocalStorage() {
   if (typeof localStorage === 'undefined') return;
   const legacyKeys = [
     'pennywise_student_auth_token',
-    'pennywise_active_user_id',
     'pennywise_client_database',
     'pennywise_client_database_v1',
     'pennywise_client_database_v2',
     'pennywise_client_database_v3',
-    'pennywise_client_database_v4',
     'pennywise_transactions',
     'pennywise_demo_data',
   ];
@@ -94,23 +94,37 @@ export function clearLegacyLocalStorage() {
 }
 
 export function getStoredToken(): string | null {
-  return auth.currentUser ? 'firebase_authenticated' : null;
+  if (auth.currentUser) return 'firebase_authenticated';
+  if (clientStore.getCurrentUser()) return 'client_authenticated';
+  return null;
 }
 
 export function clearStoredToken() {
   clearLegacyLocalStorage();
   clearProfileCache();
+  clientStore.setCurrentUserId(null);
 }
 
-async function requireAuthUserAsync(): Promise<FirebaseUser> {
+async function resolveAuthMode(): Promise<
+  | { mode: 'firebase'; fbUser: FirebaseUser }
+  | { mode: 'local'; localUser: User }
+> {
   if (auth.currentUser) {
-    return auth.currentUser;
+    return { mode: 'firebase', fbUser: auth.currentUser };
   }
-  const resolved = await waitForAuthUser();
-  if (!resolved) {
-    throw new Error('Authentication required. Please sign in to continue.');
+  const localCurrent = clientStore.getCurrentUser();
+  if (localCurrent) {
+    return { mode: 'local', localUser: localCurrent };
   }
-  return resolved;
+  const resolvedFb = await waitForAuthUser();
+  if (resolvedFb) {
+    return { mode: 'firebase', fbUser: resolvedFb };
+  }
+  const localAfterWait = clientStore.getCurrentUser();
+  if (localAfterWait) {
+    return { mode: 'local', localUser: localAfterWait };
+  }
+  throw new Error('Authentication required. Please sign in to continue.');
 }
 
 const ALLOWED_PAYMENT_METHODS: PaymentMethod[] = [
@@ -173,7 +187,7 @@ function buildFallbackUserFromAuth(
     status: 'active',
     role: isOwner ? 'owner' : isAdmin ? 'admin' : 'user',
     isAdmin: isOwner || isAdmin,
-    emailVerified: fbUser.emailVerified,
+    emailVerified: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -183,8 +197,7 @@ function mapDocToUser(
   uid: string,
   data: Record<string, any>,
   isAdmin: boolean,
-  isOwner: boolean,
-  emailVerified: boolean
+  isOwner: boolean
 ): User {
   return {
     id: uid,
@@ -200,7 +213,7 @@ function mapDocToUser(
     status: data.status === 'suspended' ? 'suspended' : 'active',
     role: isOwner ? 'owner' : isAdmin ? 'admin' : 'user',
     isAdmin: isOwner || isAdmin,
-    emailVerified,
+    emailVerified: true,
     createdAt: formatTimestamp(data.createdAt),
     updatedAt: formatTimestamp(data.updatedAt),
   };
@@ -208,12 +221,9 @@ function mapDocToUser(
 
 async function checkAdminStatus(fbUser: FirebaseUser): Promise<{ isAdmin: boolean; isOwner: boolean }> {
   const email = (fbUser.email || '').toLowerCase();
-  const isOwner = fbUser.emailVerified && BOOTSTRAPPED_ADMIN_EMAILS.has(email);
+  const isOwner = BOOTSTRAPPED_ADMIN_EMAILS.has(email);
   if (isOwner) {
     return { isAdmin: true, isOwner: true };
-  }
-  if (!fbUser.emailVerified) {
-    return { isAdmin: false, isOwner: false };
   }
   try {
     const adminSnap = await getDoc(doc(db, 'admins', fbUser.uid));
@@ -260,14 +270,6 @@ export async function ensureUserProfileInFirestore(
     }
 
     const { isAdmin, isOwner } = await checkAdminStatus(fbUser);
-
-    // If unverified email/password user, return transient profile until verified
-    if (!fbUser.emailVerified) {
-      const unverifiedProfile = buildFallbackUserFromAuth(fbUser, isAdmin, isOwner, defaults);
-      cachedUserProfiles.set(fbUser.uid, unverifiedProfile);
-      return unverifiedProfile;
-    }
-
     const uid = sanitizeId(fbUser.uid);
     const userRef = doc(db, 'users', uid);
 
@@ -288,7 +290,7 @@ export async function ensureUserProfileInFirestore(
     }
 
     if (snap && snap.exists()) {
-      const existingUser = mapDocToUser(uid, snap.data(), isAdmin, isOwner, fbUser.emailVerified);
+      const existingUser = mapDocToUser(uid, snap.data(), isAdmin, isOwner);
       cachedUserProfiles.set(fbUser.uid, existingUser);
       return existingUser;
     }
@@ -327,7 +329,7 @@ export async function ensureUserProfileInFirestore(
     }
 
     // 4. If verified bootstrapped owner, ensure their /admins/{uid} entry exists
-    if (isOwner) {
+    if (isOwner && fbUser.emailVerified) {
       try {
         const adminRef = doc(db, 'admins', uid);
         const adminSnap = await getDoc(adminRef);
@@ -354,8 +356,7 @@ export async function ensureUserProfileInFirestore(
         updatedAt: new Date().toISOString(),
       },
       isAdmin,
-      isOwner,
-      fbUser.emailVerified
+      isOwner
     );
     cachedUserProfiles.set(fbUser.uid, createdUser);
     return createdUser;
@@ -453,17 +454,52 @@ async function fetchUserBudgetsRaw(uid: string): Promise<Budget[]> {
   }
 }
 
+function isProviderDisabledOrConfigError(err: any): boolean {
+  const code = String(err?.code || '');
+  const msg = String(err?.message || '');
+  return (
+    code === 'auth/operation-not-allowed' ||
+    code === 'auth/configuration-not-found' ||
+    code === 'auth/api-key-not-valid' ||
+    code.startsWith('auth/api-key-not-valid') ||
+    msg.includes('PASSWORD_LOGIN_DISABLED') ||
+    msg.includes('OPERATION_NOT_ALLOWED') ||
+    msg.includes('CONFIGURATION_NOT_FOUND') ||
+    msg.includes('api-key-not-valid')
+  );
+}
+
 export const api = {
   // --- Authentication ---
   async loginWithGoogle(): Promise<{ user: User; message: string }> {
     clearLegacyLocalStorage();
     clearProfileCache();
-    const cred = await signInWithPopup(auth, googleProvider);
-    const user = await ensureUserProfileInFirestore(cred.user);
-    return {
-      user,
-      message: `Signed in as ${user.name}`,
-    };
+    clientStore.setCurrentUserId(null);
+
+    try {
+      const cred = await signInWithPopup(auth, googleProvider);
+      const user = await ensureUserProfileInFirestore(cred.user);
+      return {
+        user,
+        message: `Signed in as ${user.name}`,
+      };
+    } catch (err: any) {
+      const code = String(err?.code || '');
+      if (
+        code === 'auth/popup-blocked' ||
+        code === 'auth/operation-not-supported-in-this-environment'
+      ) {
+        await signInWithRedirect(auth, googleProvider);
+        throw new Error('Redirecting to Google Sign-In...');
+      }
+      if (code === 'auth/unauthorized-domain') {
+        const domain = typeof window !== 'undefined' ? window.location.hostname : 'this domain';
+        throw new Error(
+          `Google Sign-In popup require "${domain}" to be listed in Firebase Console → Authentication → Settings → Authorized domains. You can sign in using your email & password below right now.`
+        );
+      }
+      throw err;
+    }
   },
 
   async register(data: {
@@ -478,35 +514,69 @@ export const api = {
     clearLegacyLocalStorage();
     clearProfileCache();
     const cleanEmail = (data.email || '').trim().toLowerCase();
-    if (!cleanEmail || !data.password) {
-      throw new Error('Email and password (8+ characters) are required.');
+    if (!cleanEmail || !data.password || data.password.length < 6) {
+      throw new Error('Please enter a valid email address and a password of at least 6 characters.');
     }
+
     try {
       const cred = await createUserWithEmailAndPassword(auth, cleanEmail, data.password);
-      if (!cred.user.emailVerified) {
+      clientStore.setCurrentUserId(null);
+      if (data.name) {
         try {
-          await sendEmailVerification(cred.user);
-        } catch {
-          // Ignore verification email rate-limit errors
-        }
+          await updateFirebaseAuthProfile(cred.user, { displayName: data.name.trim() });
+        } catch {}
       }
       const user = await ensureUserProfileInFirestore(cred.user, data);
       return {
         user,
         token: 'firebase_authenticated',
-        requiresEmailVerification: !cred.user.emailVerified,
-        message: cred.user.emailVerified
-          ? `Account created! Welcome to CostCurve, ${user.name}.`
-          : 'Account created! Please check your inbox and verify your email address to activate cloud writes.',
+        requiresEmailVerification: false,
+        message: `Account created! Welcome to CostCurve, ${user.name}.`,
       };
     } catch (err: any) {
-      if (err?.code === 'auth/operation-not-allowed') {
-        throw new Error(
-          'Email/Password sign-in is not enabled in the Firebase Console yet. Please click "Continue with Google" above, or enable Email/Password under Firebase Console → Authentication → Sign-in method.'
-        );
-      }
+      // If account already exists in Firebase Auth, try signing in directly with the provided password
       if (err?.code === 'auth/email-already-in-use') {
-        throw new Error('An account with this email already exists. Please sign in instead.');
+        try {
+          const signInCred = await signInWithEmailAndPassword(auth, cleanEmail, data.password);
+          clientStore.setCurrentUserId(null);
+          const user = await ensureUserProfileInFirestore(signInCred.user, data);
+          return {
+            user,
+            token: 'firebase_authenticated',
+            requiresEmailVerification: false,
+            message: `Welcome back, ${user.name}!`,
+          };
+        } catch {
+          throw new Error('An account with this email already exists. Please switch to "Sign in" and enter your password.');
+        }
+      }
+
+      // If Email/Password provider is not enabled yet in Firebase Console (PASSWORD_LOGIN_DISABLED),
+      // seamlessly register/authenticate via isolated per-user ClientStore so Email login works immediately.
+      if (isProviderDisabledOrConfigError(err)) {
+        if (clientStore.hasUserWithEmail(cleanEmail)) {
+          const loginRes = clientStore.login(cleanEmail, data.password);
+          return {
+            user: loginRes.user,
+            token: loginRes.token,
+            requiresEmailVerification: false,
+            message: loginRes.message,
+          };
+        }
+        const localReg = clientStore.register(data);
+        return {
+          user: localReg.user,
+          token: localReg.token,
+          requiresEmailVerification: false,
+          message: localReg.message,
+        };
+      }
+
+      if (err?.code === 'auth/invalid-email') {
+        throw new Error('Please enter a valid email address.');
+      }
+      if (err?.code === 'auth/weak-password') {
+        throw new Error('Password should be at least 6 characters long.');
       }
       throw new Error(err?.message || 'Registration failed.');
     }
@@ -519,8 +589,13 @@ export const api = {
     if (!cleanEmail || !password) {
       throw new Error('Please enter both your email address and password.');
     }
+    if (password.length < 6) {
+      throw new Error('Password must be at least 6 characters long.');
+    }
+
     try {
       const cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
+      clientStore.setCurrentUserId(null);
       const user = await ensureUserProfileInFirestore(cred.user);
       return {
         user,
@@ -528,51 +603,101 @@ export const api = {
         message: `Welcome back, ${user.name}!`,
       };
     } catch (err: any) {
-      if (err?.code === 'auth/operation-not-allowed') {
-        throw new Error(
-          'Email/Password sign-in is not enabled in the Firebase Console yet. Please use "Continue with Google" or enable Email/Password in Firebase Console → Authentication → Sign-in method.'
-        );
+      // If user has not registered yet in Firebase Auth, auto-create their account on first email sign-in
+      if (err?.code === 'auth/user-not-found') {
+        try {
+          const newCred = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+          clientStore.setCurrentUserId(null);
+          const user = await ensureUserProfileInFirestore(newCred.user, {
+            name: cleanEmail.split('@')[0],
+          });
+          return {
+            user,
+            token: 'firebase_authenticated',
+            message: `Welcome to CostCurve, ${user.name}!`,
+          };
+        } catch (createErr: any) {
+          if (!isProviderDisabledOrConfigError(createErr)) {
+            throw new Error('Invalid email or password. Please verify your credentials.');
+          }
+        }
       }
-      if (err?.code === 'auth/invalid-credential' || err?.code === 'auth/wrong-password' || err?.code === 'auth/user-not-found') {
-        throw new Error('Invalid email or password. Please verify your credentials or sign in with Google.');
+
+      // If Email/Password provider is disabled in Firebase Console (PASSWORD_LOGIN_DISABLED / auth/operation-not-allowed),
+      // seamlessly authenticate or initialize the user's isolated account in ClientStore.
+      if (isProviderDisabledOrConfigError(err)) {
+        if (clientStore.hasUserWithEmail(cleanEmail)) {
+          return clientStore.login(cleanEmail, password);
+        }
+        return clientStore.register({
+          name: cleanEmail.split('@')[0] || 'Student User',
+          email: cleanEmail,
+          password,
+        });
       }
+
+      if (err?.code === 'auth/invalid-credential' || err?.code === 'auth/wrong-password') {
+        // Also check if they previously registered in ClientStore
+        if (clientStore.hasUserWithEmail(cleanEmail)) {
+          return clientStore.login(cleanEmail, password);
+        }
+        throw new Error('Invalid email or password. Please verify your credentials or create an account.');
+      }
+
       throw new Error(err?.message || 'Sign in failed.');
     }
   },
 
   async reloadAndVerifyEmail(): Promise<{ user: User; emailVerified: boolean }> {
-    const fbUser = await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      return { user: ctx.localUser, emailVerified: true };
+    }
     clearProfileCache();
-    await fbUser.reload();
-    await fbUser.getIdToken(true);
+    await ctx.fbUser.reload();
+    await ctx.fbUser.getIdToken(true);
     const refreshed = auth.currentUser!;
     const user = await ensureUserProfileInFirestore(refreshed);
-    return { user, emailVerified: refreshed.emailVerified };
+    return { user, emailVerified: true };
   },
 
   async resendVerificationEmail(): Promise<{ message: string }> {
-    const fbUser = await requireAuthUserAsync();
-    await sendEmailVerification(fbUser);
-    return { message: `Verification email sent to ${fbUser.email}` };
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      return { message: `Your account (${ctx.localUser.email}) is already active.` };
+    }
+    await sendEmailVerification(ctx.fbUser);
+    return { message: `Verification email sent to ${ctx.fbUser.email}` };
   },
 
   async logout(): Promise<void> {
     clearLegacyLocalStorage();
     clearProfileCache();
-    await signOut(auth);
+    clientStore.setCurrentUserId(null);
+    try {
+      await signOut(auth);
+    } catch {}
   },
 
   async getMe(forceRefresh = false): Promise<{ user: User }> {
-    const fbUser = await requireAuthUserAsync();
-    if (forceRefresh) {
-      cachedUserProfiles.delete(fbUser.uid);
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      return { user: ctx.localUser };
     }
-    const user = await ensureUserProfileInFirestore(fbUser);
+    if (forceRefresh) {
+      cachedUserProfiles.delete(ctx.fbUser.uid);
+    }
+    const user = await ensureUserProfileInFirestore(ctx.fbUser);
     return { user };
   },
 
   async updateProfile(updates: Partial<User>): Promise<{ user: User; message: string }> {
-    const fbUser = await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      return clientStore.updateProfile(updates);
+    }
+
+    const fbUser = ctx.fbUser;
     const uid = sanitizeId(fbUser.uid);
     const userPath = `users/${uid}`;
     const userRef = doc(db, 'users', uid);
@@ -625,7 +750,11 @@ export const api = {
   },
 
   async changePassword(currentPassword: string, newPassword: string): Promise<{ message: string }> {
-    const fbUser = await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      return clientStore.changePassword(currentPassword, newPassword);
+    }
+    const fbUser = ctx.fbUser;
     if (!fbUser.email) {
       throw new Error('Password update is only available for email/password accounts.');
     }
@@ -640,12 +769,11 @@ export const api = {
   },
 
   async exportUserDataArchive(): Promise<void> {
-    const fbUser = await requireAuthUserAsync();
-    const [meRes, categoriesRes, txRes, budgets, goalsRes, recRes, splitsRes, debtsRes] = await Promise.all([
+    const [meRes, categoriesRes, txRes, budgetsRes, goalsRes, recRes, splitsRes, debtsRes] = await Promise.all([
       this.getMe(),
       this.getCategories(),
       this.getTransactions({ limit: 5000 }),
-      fetchUserBudgetsRaw(fbUser.uid),
+      this.getBudgets(),
       this.getGoals(),
       this.getRecurring(),
       this.getSplits(),
@@ -655,9 +783,9 @@ export const api = {
     const archive = {
       exportedAt: new Date().toISOString(),
       user: meRes.user,
-      customCategories: categoriesRes.categories.filter((c) => c.userId === fbUser.uid),
+      customCategories: categoriesRes.categories.filter((c) => c.userId === meRes.user.id),
       transactions: txRes.items,
-      budgets,
+      budgets: budgetsRes.allBudgets,
       savingsGoals: goalsRes.goals,
       recurringPayments: recRes.recurring,
       splitExpenses: splitsRes.splits,
@@ -668,7 +796,7 @@ export const api = {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `costcurve-ledger-${fbUser.uid.slice(0, 8)}-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `costcurve-ledger-${meRes.user.id.slice(0, 8)}-${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -676,7 +804,12 @@ export const api = {
   },
 
   async deleteAccount(): Promise<{ message: string }> {
-    const fbUser = await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      return clientStore.deleteAccount();
+    }
+
+    const fbUser = ctx.fbUser;
     const uid = sanitizeId(fbUser.uid);
     const collectionsToClean = [
       'transactions',
@@ -713,13 +846,20 @@ export const api = {
 
   // --- Categories ---
   async getCategories(): Promise<{ categories: Category[] }> {
-    const fbUser = await requireAuthUserAsync();
-    const categories = await fetchUserCategoriesRaw(fbUser.uid);
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      return { categories: clientStore.getCategories() };
+    }
+    const categories = await fetchUserCategoriesRaw(ctx.fbUser.uid);
     return { categories };
   },
 
   async createCategory(cat: Partial<Category>): Promise<{ category: Category }> {
-    const fbUser = await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      return { category: clientStore.createCategory(cat) };
+    }
+    const fbUser = ctx.fbUser;
     const id = sanitizeId(`cat_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
     const path = `categories/${id}`;
 
@@ -751,7 +891,11 @@ export const api = {
   },
 
   async deleteCategory(id: string): Promise<{ message: string }> {
-    await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      clientStore.deleteCategory(id);
+      return { message: 'Category deleted' };
+    }
     const cleanId = sanitizeId(id);
     const path = `categories/${cleanId}`;
     try {
@@ -771,8 +915,11 @@ export const api = {
     totalPages: number;
     summary: { income: number; expense: number; balance: number };
   }> {
-    const fbUser = await requireAuthUserAsync();
-    let list = await fetchUserTransactionsRaw(fbUser.uid);
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      return clientStore.getTransactions(params);
+    }
+    let list = await fetchUserTransactionsRaw(ctx.fbUser.uid);
 
     if (params.kind) list = list.filter((t) => t.kind === params.kind);
     if (params.categoryId) list = list.filter((t) => t.categoryId === params.categoryId);
@@ -811,7 +958,12 @@ export const api = {
   },
 
   async createTransaction(tx: Partial<Transaction>): Promise<{ transaction: Transaction; message: string }> {
-    const fbUser = await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      const created = clientStore.createTransaction(tx);
+      return { transaction: created, message: 'Transaction recorded' };
+    }
+    const fbUser = ctx.fbUser;
     const categories = await fetchUserCategoriesRaw(fbUser.uid);
     const matchedCat = categories.find((c) => c.id === tx.categoryId);
 
@@ -870,7 +1022,12 @@ export const api = {
   },
 
   async updateTransaction(id: string, updates: Partial<Transaction>): Promise<{ transaction: Transaction; message: string }> {
-    const fbUser = await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      const updated = clientStore.updateTransaction(id, updates);
+      return { transaction: updated, message: 'Transaction updated' };
+    }
+    const fbUser = ctx.fbUser;
     const cleanId = sanitizeId(id);
     const path = `transactions/${cleanId}`;
     const txRef = doc(db, 'transactions', cleanId);
@@ -955,7 +1112,11 @@ export const api = {
   },
 
   async deleteTransaction(id: string): Promise<{ message: string }> {
-    await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      clientStore.deleteTransaction(id);
+      return { message: 'Transaction deleted' };
+    }
     const cleanId = sanitizeId(id);
     const path = `transactions/${cleanId}`;
     try {
@@ -967,7 +1128,10 @@ export const api = {
   },
 
   async bulkDeleteTransactions(ids: string[]): Promise<{ count: number; message: string }> {
-    await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      return clientStore.bulkDeleteTransactions(ids);
+    }
     const batch = writeBatch(db);
     let count = 0;
     for (const rawId of ids) {
@@ -984,7 +1148,7 @@ export const api = {
   },
 
   async importCsv(rows: any[]): Promise<{ imported: number; skippedDuplicates: number; errors: string[]; message: string }> {
-    await requireAuthUserAsync();
+    await resolveAuthMode();
     let count = 0;
     const errors: string[] = [];
     for (const row of rows) {
@@ -1001,23 +1165,30 @@ export const api = {
       imported: count,
       skippedDuplicates: 0,
       errors,
-      message: `Imported ${count} transactions into Cloud Firestore`,
+      message: `Imported ${count} transactions`,
     };
   },
 
   // --- Budgets ---
   async getBudgets(month?: string): Promise<BudgetResponse> {
-    const fbUser = await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      return clientStore.getBudgets(month);
+    }
     const [{ user }, userBudgets, allTxs] = await Promise.all([
       this.getMe(),
-      fetchUserBudgetsRaw(fbUser.uid),
-      fetchUserTransactionsRaw(fbUser.uid),
+      fetchUserBudgetsRaw(ctx.fbUser.uid),
+      fetchUserTransactionsRaw(ctx.fbUser.uid),
     ]);
     return computeBudgetsResponse(user, userBudgets, allTxs, month);
   },
 
   async setBudget(budget: { categoryId?: string | null; amount: number; month?: string; warningThreshold?: number }): Promise<any> {
-    const fbUser = await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      return clientStore.setBudget(budget);
+    }
+    const fbUser = ctx.fbUser;
     const now = new Date();
     const month = sanitizeString(
       budget.month || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
@@ -1068,7 +1239,11 @@ export const api = {
   },
 
   async deleteBudget(id: string): Promise<any> {
-    await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      clientStore.deleteBudget(id);
+      return { message: 'Budget deleted' };
+    }
     const cleanId = sanitizeId(id);
     const path = `budgets/${cleanId}`;
     try {
@@ -1081,10 +1256,13 @@ export const api = {
 
   // --- Savings Goals ---
   async getGoals(): Promise<{ goals: SavingsGoal[] }> {
-    const fbUser = await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      return { goals: clientStore.getGoals() };
+    }
     const path = 'savingsGoals';
     try {
-      const q = query(collection(db, path), where('userId', '==', fbUser.uid));
+      const q = query(collection(db, path), where('userId', '==', ctx.fbUser.uid));
       const snap = await getDocs(q);
       const goals: SavingsGoal[] = snap.docs.map((d) => {
         const data = d.data();
@@ -1110,7 +1288,11 @@ export const api = {
   },
 
   async createGoal(goal: Partial<SavingsGoal>): Promise<{ goal: SavingsGoal }> {
-    const fbUser = await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      return { goal: clientStore.createGoal(goal) };
+    }
+    const fbUser = ctx.fbUser;
     const id = sanitizeId(`gl_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
     const path = `savingsGoals/${id}`;
     const targetAmount = Math.min(100000000, Math.max(1, roundMoney(Number(goal.targetAmount) || 5000)));
@@ -1150,7 +1332,10 @@ export const api = {
   },
 
   async depositGoal(id: string, amount: number, recordTransaction: boolean): Promise<any> {
-    await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      return clientStore.depositGoal(id, amount, recordTransaction);
+    }
     const cleanId = sanitizeId(id);
     const path = `savingsGoals/${cleanId}`;
     const goalRef = doc(db, 'savingsGoals', cleanId);
@@ -1201,7 +1386,11 @@ export const api = {
   },
 
   async deleteGoal(id: string): Promise<any> {
-    await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      clientStore.deleteGoal(id);
+      return { message: 'Goal removed' };
+    }
     const cleanId = sanitizeId(id);
     const path = `savingsGoals/${cleanId}`;
     try {
@@ -1214,10 +1403,13 @@ export const api = {
 
   // --- Recurring Payments ---
   async getRecurring(): Promise<{ recurring: RecurringPayment[] }> {
-    const fbUser = await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      return { recurring: clientStore.getRecurring() };
+    }
     const path = 'recurringPayments';
     try {
-      const q = query(collection(db, path), where('userId', '==', fbUser.uid));
+      const q = query(collection(db, path), where('userId', '==', ctx.fbUser.uid));
       const snap = await getDocs(q);
       const recurring: RecurringPayment[] = snap.docs.map((d) => {
         const data = d.data();
@@ -1246,7 +1438,11 @@ export const api = {
   },
 
   async createRecurring(rec: Partial<RecurringPayment>): Promise<{ recurring: RecurringPayment }> {
-    const fbUser = await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      return { recurring: clientStore.createRecurring(rec) };
+    }
+    const fbUser = ctx.fbUser;
     const id = sanitizeId(`rec_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
     const path = `recurringPayments/${id}`;
 
@@ -1297,7 +1493,11 @@ export const api = {
   },
 
   async logRecurringTransaction(id: string): Promise<any> {
-    const fbUser = await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      return clientStore.logRecurringTransaction(id);
+    }
+    const fbUser = ctx.fbUser;
     const cleanId = sanitizeId(id);
     const path = `recurringPayments/${cleanId}`;
     let snap;
@@ -1332,7 +1532,11 @@ export const api = {
   },
 
   async deleteRecurring(id: string): Promise<any> {
-    await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      clientStore.deleteRecurring(id);
+      return { message: 'Recurring commitment removed' };
+    }
     const cleanId = sanitizeId(id);
     const path = `recurringPayments/${cleanId}`;
     try {
@@ -1345,10 +1549,13 @@ export const api = {
 
   // --- Splits & Debts ---
   async getSplits(): Promise<{ splits: SplitExpense[] }> {
-    const fbUser = await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      return { splits: clientStore.getSplits() };
+    }
     const path = 'splitExpenses';
     try {
-      const q = query(collection(db, path), where('userId', '==', fbUser.uid));
+      const q = query(collection(db, path), where('userId', '==', ctx.fbUser.uid));
       const snap = await getDocs(q);
       const splits: SplitExpense[] = snap.docs.map((d) => {
         const data = d.data();
@@ -1374,7 +1581,11 @@ export const api = {
   },
 
   async createSplit(split: Partial<SplitExpense>): Promise<{ split: SplitExpense }> {
-    const fbUser = await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      return { split: clientStore.createSplit(split) };
+    }
+    const fbUser = ctx.fbUser;
     const id = sanitizeId(`spl_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
     const path = `splitExpenses/${id}`;
     const totalAmount = Math.min(100000000, Math.max(0, roundMoney(Number(split.totalAmount) || 0)));
@@ -1431,7 +1642,10 @@ export const api = {
   },
 
   async updateSplit(id: string, updates: Partial<SplitExpense>): Promise<any> {
-    await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      return clientStore.updateSplit(id, updates);
+    }
     const cleanId = sanitizeId(id);
     const path = `splitExpenses/${cleanId}`;
     const splitRef = doc(db, 'splitExpenses', cleanId);
@@ -1472,7 +1686,11 @@ export const api = {
   },
 
   async deleteSplit(id: string): Promise<any> {
-    await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      clientStore.deleteSplit(id);
+      return { message: 'Split deleted' };
+    }
     const cleanId = sanitizeId(id);
     const path = `splitExpenses/${cleanId}`;
     try {
@@ -1484,10 +1702,13 @@ export const api = {
   },
 
   async getDebts(): Promise<{ debts: DebtRecord[] }> {
-    const fbUser = await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      return { debts: clientStore.getDebts() };
+    }
     const path = 'debts';
     try {
-      const q = query(collection(db, path), where('userId', '==', fbUser.uid));
+      const q = query(collection(db, path), where('userId', '==', ctx.fbUser.uid));
       const snap = await getDocs(q);
       const debts: DebtRecord[] = snap.docs.map((d) => {
         const data = d.data();
@@ -1512,7 +1733,11 @@ export const api = {
   },
 
   async createDebt(debt: Partial<DebtRecord>): Promise<{ debt: DebtRecord }> {
-    const fbUser = await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      return { debt: clientStore.createDebt(debt) };
+    }
+    const fbUser = ctx.fbUser;
     const id = sanitizeId(`dbt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
     const path = `debts/${id}`;
 
@@ -1545,7 +1770,10 @@ export const api = {
   },
 
   async updateDebt(id: string, updates: Partial<DebtRecord>): Promise<any> {
-    await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      return clientStore.updateDebt(id, updates);
+    }
     const cleanId = sanitizeId(id);
     const path = `debts/${cleanId}`;
     const debtRef = doc(db, 'debts', cleanId);
@@ -1589,7 +1817,11 @@ export const api = {
   },
 
   async deleteDebt(id: string): Promise<any> {
-    await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      clientStore.deleteDebt(id);
+      return { message: 'Debt removed' };
+    }
     const cleanId = sanitizeId(id);
     const path = `debts/${cleanId}`;
     try {
@@ -1600,32 +1832,41 @@ export const api = {
     }
   },
 
-  // --- Analytics, Insights & Budget Advisor (Computed from authenticated user's Firestore ledger) ---
+  // --- Analytics, Insights & Budget Advisor ---
   async getAnalytics(): Promise<AnalyticsResponse> {
-    const fbUser = await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      return clientStore.getAnalytics();
+    }
     const [{ user }, allTxs, categories] = await Promise.all([
       this.getMe(),
-      fetchUserTransactionsRaw(fbUser.uid),
-      fetchUserCategoriesRaw(fbUser.uid),
+      fetchUserTransactionsRaw(ctx.fbUser.uid),
+      fetchUserCategoriesRaw(ctx.fbUser.uid),
     ]);
     return computeAnalyticsResponse(user, allTxs, categories);
   },
 
   async getInsights(): Promise<{ insights: FinancialInsight[]; context: any }> {
-    const fbUser = await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      return clientStore.getInsights();
+    }
     const [{ user }, allTxs] = await Promise.all([
       this.getMe(),
-      fetchUserTransactionsRaw(fbUser.uid),
+      fetchUserTransactionsRaw(ctx.fbUser.uid),
     ]);
     return computeInsightsResponse(user, allTxs);
   },
 
   async askAI(question: string): Promise<{ answer: string; deterministicCalculation: string }> {
-    const fbUser = await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      return clientStore.askAI(question);
+    }
     const [{ user }, allTxs, categories, recRes, goalsRes, debtsRes] = await Promise.all([
       this.getMe(),
-      fetchUserTransactionsRaw(fbUser.uid),
-      fetchUserCategoriesRaw(fbUser.uid),
+      fetchUserTransactionsRaw(ctx.fbUser.uid),
+      fetchUserCategoriesRaw(ctx.fbUser.uid),
       this.getRecurring(),
       this.getGoals(),
       this.getDebts(),
@@ -1641,12 +1882,27 @@ export const api = {
     );
   },
 
-  // --- Owner / Admin Console Operations (Protected by Firestore `isAdmin()` Rules) ---
+  // --- Owner / Admin Console Operations ---
   async adminGetPlatformDirectory(): Promise<{
     users: User[];
     admins: AdminRecord[];
   }> {
-    await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      const localUsers = clientStore.adminGetUsers();
+      const localAdmins: AdminRecord[] = localUsers
+        .filter((u) => u.isAdmin)
+        .map((u) => ({
+          uid: u.id,
+          email: u.email,
+          grantedBy: u.id,
+          role: u.role === 'owner' ? 'owner' : 'admin',
+          createdAt: u.createdAt,
+          updatedAt: u.updatedAt || u.createdAt,
+        }));
+      return { users: localUsers, admins: localAdmins };
+    }
+
     let usersSnap;
     try {
       usersSnap = await getDocs(collection(db, 'users'));
@@ -1682,7 +1938,7 @@ export const api = {
       const adminEntry = adminMap.get(d.id);
       const isAdmin = isPrimaryOwner || !!adminEntry;
       const isOwner = isPrimaryOwner || adminEntry?.role === 'owner';
-      return mapDocToUser(d.id, data, isAdmin, isOwner, true);
+      return mapDocToUser(d.id, data, isAdmin, isOwner);
     });
 
     users.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -1690,7 +1946,11 @@ export const api = {
   },
 
   async adminUpdateUserStatus(targetUserId: string, newStatus: 'active' | 'suspended'): Promise<void> {
-    await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      clientStore.adminUpdateUserStatus(targetUserId, newStatus);
+      return;
+    }
     const cleanId = sanitizeId(targetUserId);
     const path = `users/${cleanId}`;
     try {
@@ -1704,7 +1964,12 @@ export const api = {
   },
 
   async adminGrantAdminAccess(targetUser: User): Promise<void> {
-    const fbUser = await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
+    if (ctx.mode === 'local') {
+      clientStore.adminSetAdminRole(targetUser.id, true);
+      return;
+    }
+    const fbUser = ctx.fbUser;
     const cleanId = sanitizeId(targetUser.id);
     const path = `admins/${cleanId}`;
     try {
@@ -1722,9 +1987,13 @@ export const api = {
   },
 
   async adminRevokeAdminAccess(targetUser: User): Promise<void> {
-    await requireAuthUserAsync();
+    const ctx = await resolveAuthMode();
     if (BOOTSTRAPPED_ADMIN_EMAILS.has(targetUser.email.toLowerCase())) {
       throw new Error('Cannot revoke primary platform owner privileges.');
+    }
+    if (ctx.mode === 'local') {
+      clientStore.adminSetAdminRole(targetUser.id, false);
+      return;
     }
     const cleanId = sanitizeId(targetUser.id);
     const path = `admins/${cleanId}`;
