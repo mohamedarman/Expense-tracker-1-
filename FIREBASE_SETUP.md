@@ -1,6 +1,6 @@
 # CostCurve — Firebase Authentication & Cloud Firestore Setup Guide
 
-This guide explains how **CostCurve** is configured with **Firebase Authentication** and **Cloud Firestore**, how strict per-user isolation and Owner/Admin governance work, and how to configure or deploy the app to custom environments (such as GitHub Pages or Vercel).
+This guide explains how **CostCurve** is configured with **Firebase Authentication** and **Cloud Firestore**, how strict per-user isolation and Owner/Admin governance work, and how to deploy to GitHub Pages without triggering GitHub Secret Scanning alerts.
 
 ---
 
@@ -24,31 +24,58 @@ This guide explains how **CostCurve** is configured with **Firebase Authenticati
      * `/debts/{debtId}` — Peer IOU records (`userId == request.auth.uid`).
 
 3. **Zero-Trust Security Rules (`firestore.rules`)**
-   * **Per-User Financial Isolation**: Every `get`, `list`, `create`, `update`, and `delete` operation on financial collections requires `userId == request.auth.uid` enforced directly by Firestore Security Rules. User A can never read, list, modify, or delete User B's financial records even if the frontend is bypassed.
+   * **Per-User Financial Privacy**: Every `get`, `list`, `create`, `update`, and `delete` operation on financial collections requires `userId == request.auth.uid` enforced directly by Firestore Security Rules. User A can never read, list, modify, or delete User B's financial records.
    * **Owner & Admin Governance**:
-     * The primary owner account (`mohamedarman536@gmail.com` with `email_verified == true`) is bootstrapped in `firestore.rules`.
+     * The primary owner account (`costcurveexpensetracker@gmail.com` with `email_verified == true`) is bootstrapped in `firestore.rules`.
      * Additional administrators are stored in `/admins/{uid}`, which only an existing verified administrator can create, update, or delete.
      * Normal users cannot set or modify admin roles or alter their own account `status` (`active` vs `suspended`).
-   * **Sensitive Financial Privacy**: Administrator privileges allow viewing the registered user directory (`/users`), suspending/reactivating accounts, and managing `/admins`, but do **not** expose private user transaction ledgers in bulk.
 
 ---
 
-## 2. Enabling Authentication Providers in Firebase Console
+## 2. Preventing GitHub Secret Scanning Alerts (`firebase-applet-config.json` & `docs/`)
 
-By default, provisioning configures **Google Sign-In**. If you also want users to register with **Email & Password**:
+GitHub automatically scans pushed commits for strings starting with `AIzaSy...` (Google/Firebase API keys). To keep your GitHub repository 100% free of secret scanning alerts:
 
-1. Open the [Firebase Console](https://console.firebase.google.com/) and select your project (`quaint-rite-rn50x` or your custom project).
+1. **`firebase-applet-config.json` and `docs/` are gitignored**:
+   * Both `firebase-applet-config.json` and `docs/` are listed in `.gitignore`, and the tracked `docs/` build folder has been removed because GitHub Actions deploys directly from `./dist`.
+   * If `firebase-applet-config.json` was already committed in an earlier commit on GitHub, run this once in your local Git repo before pushing:
+     ```bash
+     git rm --cached firebase-applet-config.json
+     git commit -m "Stop tracking local firebase config"
+     git push
+     ```
+2. **Restrict Your API Key in Google Cloud Console (Recommended Best Practice)**:
+   * Open [Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials).
+   * Click your Browser/Firebase API key → under **Application restrictions**, select **Websites** and add:
+     * `https://mohamedarman.github.io/*`
+     * `https://*.run.app/*`
+     * `https://quaint-rite-rn50x.firebaseapp.com/*`
+   * Save and close the alert in your GitHub repository under **Security → Secret scanning alerts**.
+3. **Add Your Firebase Config as GitHub Repository Secrets**:
+   * In your GitHub repository (`mohamedarman/Expense-tracker-1-`), go to **Settings → Secrets and variables → Actions → New repository secret** and add:
+     * `VITE_FIREBASE_API_KEY`
+     * `VITE_FIREBASE_AUTH_DOMAIN`
+     * `VITE_FIREBASE_PROJECT_ID`
+     * `VITE_FIREBASE_STORAGE_BUCKET`
+     * `VITE_FIREBASE_MESSAGING_SENDER_ID`
+     * `VITE_FIREBASE_APP_ID`
+     * `VITE_FIREBASE_FIRESTORE_DATABASE_ID`
+   * `.github/workflows/static.yml` and `.github/workflows/ci.yml` automatically inject these secrets at build time.
+
+---
+
+## 3. Enabling Authentication Providers in Firebase Console
+
+1. Open the [Firebase Console](https://console.firebase.google.com/) and select your project.
 2. Navigate to **Build → Authentication → Sign-in method**.
-3. Click **Add new provider** → select **Email/Password** → toggle **Enable** → click **Save**.
-4. For **GitHub Pages** or custom domains:
-   * Navigate to **Authentication → Settings → Authorized domains**.
-   * Click **Add domain** and add `mohamedarman.github.io` (or your custom domain) so Firebase allows Google Sign-In popups from your live domain.
+3. Ensure **Google** is enabled, and optionally enable **Email/Password**.
+4. Under **Authentication → Settings → Authorized domains**, add `mohamedarman.github.io` so Google Sign-In popups work on your GitHub Pages URL.
 
 ---
 
-## 3. Environment Variables (`.env.example`)
+## 4. Environment Variables (`.env.example`)
 
-In AI Studio, the app automatically loads `/firebase-applet-config.json`. To override the Firebase project in a local or external deployment, copy `.env.example` to `.env` and fill in your public Firebase Web SDK configuration:
+Copy `.env.example` to `.env` for local development outside AI Studio:
 
 ```env
 VITE_FIREBASE_API_KEY=your_firebase_api_key_here
@@ -57,26 +84,7 @@ VITE_FIREBASE_PROJECT_ID=your-project-id
 VITE_FIREBASE_STORAGE_BUCKET=your-project-id.firebasestorage.app
 VITE_FIREBASE_MESSAGING_SENDER_ID=000000000000
 VITE_FIREBASE_APP_ID=1:000000000000:web:0000000000000000000000
-VITE_FIREBASE_FIRESTORE_DATABASE_ID=(default)
-VITE_OWNER_ADMIN_EMAIL=mohamedarman536@gmail.com
-```
-
-> **Security Note**: Never commit `.env` files or service account private keys to Git. Firebase Web API keys identify your Firebase project to Google servers, and all access control is enforced by `firestore.rules`.
-
----
-
-## 4. Verification & Security Testing
-
-Run the automated test suite and Firestore security rule linter at any time:
-
-```bash
-# Lint Firestore Security Rules
-npx eslint firestore.rules
-
-# Run all unit, isolation, and security rule verification tests
-npm test
-
-# Type-check and build production bundle
-npm run lint
-npm run build
+# Optional: Leave blank for standard default Firestore databases
+VITE_FIREBASE_FIRESTORE_DATABASE_ID=
+VITE_OWNER_ADMIN_EMAIL=costcurveexpensetracker@gmail.com
 ```

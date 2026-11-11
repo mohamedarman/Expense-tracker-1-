@@ -64,7 +64,7 @@ function isVerified(auth: SimulatedAuth | null): boolean {
 
 function isAdmin(auth: SimulatedAuth | null, db: SimulatedDbState): boolean {
   if (!isVerified(auth)) return false;
-  if (auth!.email === 'mohamedarman536@gmail.com') return true;
+  if (auth!.email === 'costcurveexpensetracker@gmail.com') return true;
   return db.admins.has(auth!.uid);
 }
 
@@ -96,8 +96,7 @@ function evaluateRule(
 
   if (collection === 'users') {
     if (operation === 'get') {
-      if (!existing) return 'PERMISSION_DENIED';
-      return isSignedIn(auth) && isValidId(docId) && (existing.id === auth!.uid || isAdmin(auth, db))
+      return isSignedIn(auth) && isValidId(docId) && (auth!.uid === docId || isAdmin(auth, db))
         ? 'ALLOW'
         : 'PERMISSION_DENIED';
     }
@@ -320,7 +319,7 @@ describe('2. The "Dirty Dozen" Adversarial Payloads Verification', () => {
   };
   const ownerAuth: SimulatedAuth = {
     uid: 'uid_owner',
-    email: 'mohamedarman536@gmail.com',
+    email: 'costcurveexpensetracker@gmail.com',
     email_verified: true,
   };
 
@@ -465,7 +464,7 @@ describe('2. The "Dirty Dozen" Adversarial Payloads Verification', () => {
     const db = createMockDb();
     const spoofedOwner: SimulatedAuth = {
       uid: 'uid_attacker',
-      email: 'mohamedarman536@gmail.com',
+      email: 'costcurveexpensetracker@gmail.com',
       email_verified: false,
     };
     assert.strictEqual(evaluateRule(db, spoofedOwner, 'users', 'get', 'uid_bob'), 'PERMISSION_DENIED');
@@ -587,6 +586,26 @@ describe('2. The "Dirty Dozen" Adversarial Payloads Verification', () => {
       updatedAt: REQUEST_TIME,
     });
     assert.strictEqual(res, 'PERMISSION_DENIED');
+  });
+
+  test('13. First-time Google Sign-In reading non-existent own users/{uid} document -> ALLOW, other user -> PERMISSION_DENIED', () => {
+    const db = createMockDb();
+    const newGoogleUserAuth: SimulatedAuth = {
+      uid: 'uid_first_time_google',
+      email: 'newstudent@gmail.com',
+      email_verified: true,
+    };
+    // Document users/uid_first_time_google does not exist yet in db.users
+    assert.strictEqual(
+      evaluateRule(db, newGoogleUserAuth, 'users', 'get', 'uid_first_time_google'),
+      'ALLOW',
+      'First-time Google Sign-In user must be allowed to check if their own users/{uid} document exists'
+    );
+    assert.strictEqual(
+      evaluateRule(db, aliceAuth, 'users', 'get', 'uid_first_time_google'),
+      'PERMISSION_DENIED',
+      'Another user must not be allowed to probe a non-existent users/{uid} document'
+    );
   });
 });
 

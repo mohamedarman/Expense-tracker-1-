@@ -1,11 +1,13 @@
 node_modules/
 build/
 dist/
+docs/
 coverage/
 .DS_Store
 *.log
 .env*
 !.env.example
+firebase-applet-config.json
 data/*.tmp
 *.sqlite
 *.db
@@ -13,4 +15,3 @@ __pycache__/
 *.pyc
 .venv/
 .taste-skill/
-

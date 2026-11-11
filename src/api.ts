@@ -27,11 +27,13 @@ import {
   db,
   googleProvider,
   OWNER_ADMIN_EMAIL,
+  BOOTSTRAPPED_ADMIN_EMAILS,
   OperationType,
   handleFirestoreError,
   formatTimestamp,
   sanitizeId,
   sanitizeString,
+  waitForAuthUser,
 } from './firebase.ts';
 import {
   User,
@@ -60,6 +62,16 @@ import {
   evaluateBudgetAdvisorQuestion,
 } from './financialEngine.ts';
 
+// Single-flight deduplication and profile cache per UID to prevent concurrent
+// getDoc/setDoc race conditions on users/{uid} right after Google Sign-In.
+const inflightProfilePromises = new Map<string, Promise<User>>();
+const cachedUserProfiles = new Map<string, User>();
+
+export function clearProfileCache() {
+  inflightProfilePromises.clear();
+  cachedUserProfiles.clear();
+}
+
 // Clean up any legacy local storage keys so no stale browser data remains
 export function clearLegacyLocalStorage() {
   if (typeof localStorage === 'undefined') return;
@@ -87,14 +99,18 @@ export function getStoredToken(): string | null {
 
 export function clearStoredToken() {
   clearLegacyLocalStorage();
+  clearProfileCache();
 }
 
-function requireAuthUser(): FirebaseUser {
-  const current = auth.currentUser;
-  if (!current) {
+async function requireAuthUserAsync(): Promise<FirebaseUser> {
+  if (auth.currentUser) {
+    return auth.currentUser;
+  }
+  const resolved = await waitForAuthUser();
+  if (!resolved) {
     throw new Error('Authentication required. Please sign in to continue.');
   }
-  return current;
+  return resolved;
 }
 
 const ALLOWED_PAYMENT_METHODS: PaymentMethod[] = [
@@ -121,6 +137,47 @@ const ALLOWED_FREQUENCIES: RecurringFrequency[] = [
   'semester',
   'yearly',
 ];
+
+function buildFallbackUserFromAuth(
+  fbUser: FirebaseUser,
+  isAdmin: boolean,
+  isOwner: boolean,
+  defaults?: {
+    name?: string;
+    collegeName?: string;
+    degreeSemester?: string;
+    monthlyBudget?: number;
+    currency?: string;
+  }
+): User {
+  const parsedBudget =
+    defaults?.monthlyBudget !== undefined
+      ? Math.min(100000000, Math.max(0, roundMoney(Number(defaults.monthlyBudget))))
+      : 15000;
+
+  return {
+    id: fbUser.uid,
+    name: sanitizeString(
+      defaults?.name || fbUser.displayName || fbUser.email?.split('@')[0] || 'Student User',
+      100,
+      'Student User'
+    ),
+    email: sanitizeString((fbUser.email || '').toLowerCase(), 254, 'student@college.edu'),
+    currency: sanitizeString(defaults?.currency || '₹', 10, '₹'),
+    theme: 'dark',
+    monthlyBudget: parsedBudget,
+    semesterBudget: Math.min(500000000, roundMoney(parsedBudget * 4)),
+    semesterEndDate: `${new Date().getFullYear()}-12-31`,
+    collegeName: sanitizeString(defaults?.collegeName || 'College / University', 120, 'College / University'),
+    degreeSemester: sanitizeString(defaults?.degreeSemester || 'Semester 1', 120, 'Semester 1'),
+    status: 'active',
+    role: isOwner ? 'owner' : isAdmin ? 'admin' : 'user',
+    isAdmin: isOwner || isAdmin,
+    emailVerified: fbUser.emailVerified,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+}
 
 function mapDocToUser(
   uid: string,
@@ -151,7 +208,7 @@ function mapDocToUser(
 
 async function checkAdminStatus(fbUser: FirebaseUser): Promise<{ isAdmin: boolean; isOwner: boolean }> {
   const email = (fbUser.email || '').toLowerCase();
-  const isOwner = fbUser.emailVerified && email === OWNER_ADMIN_EMAIL;
+  const isOwner = fbUser.emailVerified && BOOTSTRAPPED_ADMIN_EMAILS.has(email);
   if (isOwner) {
     return { isAdmin: true, isOwner: true };
   }
@@ -170,6 +227,11 @@ async function checkAdminStatus(fbUser: FirebaseUser): Promise<{ isAdmin: boolea
   return { isAdmin: false, isOwner: false };
 }
 
+/**
+ * Safely resolves or initializes `users/{auth.currentUser.uid}` after auth state is ready.
+ * Uses single-flight deduplication per UID so concurrent callers (e.g. signInWithPopup
+ * and onAuthStateChanged) never race on getDoc/setDoc.
+ */
 export async function ensureUserProfileInFirestore(
   fbUser: FirebaseUser,
   defaults?: {
@@ -180,107 +242,131 @@ export async function ensureUserProfileInFirestore(
     currency?: string;
   }
 ): Promise<User> {
-  const userPath = `users/${fbUser.uid}`;
-  const userRef = doc(db, 'users', fbUser.uid);
-
-  let snap;
-  try {
-    snap = await getDoc(userRef);
-  } catch (error) {
-    handleFirestoreError(error, OperationType.GET, userPath);
+  if (!defaults && cachedUserProfiles.has(fbUser.uid)) {
+    return cachedUserProfiles.get(fbUser.uid)!;
   }
 
-  const { isAdmin, isOwner } = await checkAdminStatus(fbUser);
-
-  if (snap && snap.exists()) {
-    return mapDocToUser(fbUser.uid, snap.data(), isAdmin, isOwner, fbUser.emailVerified);
+  const existingPromise = inflightProfilePromises.get(fbUser.uid);
+  if (existingPromise) {
+    return existingPromise;
   }
 
-  // If the user's email is not verified yet (e.g. freshly created email/password account),
-  // return a transient profile until they verify their email so Firestore rules are respected.
-  if (!fbUser.emailVerified) {
-    const fallbackBudget = defaults?.monthlyBudget ? Math.max(0, Number(defaults.monthlyBudget)) : 15000;
-    return {
-      id: fbUser.uid,
-      name: sanitizeString(defaults?.name || fbUser.displayName || fbUser.email?.split('@')[0] || 'Student User', 100, 'Student User'),
-      email: sanitizeString(fbUser.email || '', 254, 'user@example.com'),
+  const promise = (async (): Promise<User> => {
+    // 1. Ensure Firebase Auth token is attached before hitting Firestore
+    try {
+      await fbUser.getIdToken();
+    } catch {
+      // Continue if token already cached
+    }
+
+    const { isAdmin, isOwner } = await checkAdminStatus(fbUser);
+
+    // If unverified email/password user, return transient profile until verified
+    if (!fbUser.emailVerified) {
+      const unverifiedProfile = buildFallbackUserFromAuth(fbUser, isAdmin, isOwner, defaults);
+      cachedUserProfiles.set(fbUser.uid, unverifiedProfile);
+      return unverifiedProfile;
+    }
+
+    const uid = sanitizeId(fbUser.uid);
+    const userRef = doc(db, 'users', uid);
+
+    // 2. Read users/{uid}, retrying once with a forced token refresh if needed
+    let snap = null;
+    try {
+      snap = await getDoc(userRef);
+    } catch (firstErr) {
+      try {
+        await fbUser.getIdToken(true);
+        snap = await getDoc(userRef);
+      } catch (retryErr) {
+        console.warn('Could not read user document from Firestore, using authenticated session fallback:', retryErr);
+        const fallback = buildFallbackUserFromAuth(fbUser, isAdmin, isOwner, defaults);
+        cachedUserProfiles.set(fbUser.uid, fallback);
+        return fallback;
+      }
+    }
+
+    if (snap && snap.exists()) {
+      const existingUser = mapDocToUser(uid, snap.data(), isAdmin, isOwner, fbUser.emailVerified);
+      cachedUserProfiles.set(fbUser.uid, existingUser);
+      return existingUser;
+    }
+
+    // 3. First-time sign-in: users/{uid} does not exist yet -> create it safely
+    const nowYear = new Date().getFullYear();
+    const parsedBudget =
+      defaults?.monthlyBudget !== undefined
+        ? Math.min(100000000, Math.max(0, roundMoney(Number(defaults.monthlyBudget))))
+        : 15000;
+
+    const newProfilePayload = {
+      id: uid,
+      name: sanitizeString(
+        defaults?.name || fbUser.displayName || fbUser.email?.split('@')[0] || 'Student User',
+        100,
+        'Student User'
+      ),
+      email: sanitizeString((fbUser.email || '').toLowerCase(), 254, 'student@college.edu'),
       currency: sanitizeString(defaults?.currency || '₹', 10, '₹'),
-      theme: 'dark',
-      monthlyBudget: fallbackBudget,
-      semesterBudget: fallbackBudget * 4,
-      semesterEndDate: `${new Date().getFullYear()}-12-31`,
+      theme: 'dark' as const,
+      monthlyBudget: parsedBudget,
+      semesterBudget: Math.min(500000000, roundMoney(parsedBudget * 4)),
+      semesterEndDate: `${nowYear}-12-31`,
       collegeName: sanitizeString(defaults?.collegeName || 'College / University', 120, 'College / University'),
       degreeSemester: sanitizeString(defaults?.degreeSemester || 'Semester 1', 120, 'Semester 1'),
-      status: 'active',
-      role: 'user',
-      isAdmin: false,
-      emailVerified: false,
-      createdAt: new Date().toISOString(),
+      status: 'active' as const,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
     };
-  }
 
-  const nowYear = new Date().getFullYear();
-  const parsedBudget = defaults?.monthlyBudget !== undefined
-    ? Math.min(100000000, Math.max(0, roundMoney(Number(defaults.monthlyBudget))))
-    : 15000;
-
-  const newProfilePayload = {
-    id: sanitizeId(fbUser.uid),
-    name: sanitizeString(
-      defaults?.name || fbUser.displayName || fbUser.email?.split('@')[0] || 'Student User',
-      100,
-      'Student User'
-    ),
-    email: sanitizeString((fbUser.email || '').toLowerCase(), 254, 'student@college.edu'),
-    currency: sanitizeString(defaults?.currency || '₹', 10, '₹'),
-    theme: 'dark' as const,
-    monthlyBudget: parsedBudget,
-    semesterBudget: Math.min(500000000, roundMoney(parsedBudget * 4)),
-    semesterEndDate: `${nowYear}-12-31`,
-    collegeName: sanitizeString(defaults?.collegeName || 'College / University', 120, 'College / University'),
-    degreeSemester: sanitizeString(defaults?.degreeSemester || 'Semester 1', 120, 'Semester 1'),
-    status: 'active' as const,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  };
-
-  try {
-    await setDoc(userRef, newProfilePayload);
-  } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, userPath);
-  }
-
-  // If this is the verified bootstrapped owner, also register their UID in /admins/{uid}
-  if (isOwner) {
     try {
-      const adminRef = doc(db, 'admins', fbUser.uid);
-      const adminSnap = await getDoc(adminRef);
-      if (!adminSnap.exists()) {
-        await setDoc(adminRef, {
-          uid: sanitizeId(fbUser.uid),
-          email: newProfilePayload.email,
-          grantedBy: sanitizeId(fbUser.uid),
-          role: 'owner',
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-      }
-    } catch {
-      // Non-fatal if already exists
+      await setDoc(userRef, newProfilePayload);
+    } catch (createErr) {
+      console.warn('Could not create initial user profile document in Firestore:', createErr);
     }
-  }
 
-  return mapDocToUser(
-    fbUser.uid,
-    {
-      ...newProfilePayload,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    isAdmin,
-    isOwner,
-    fbUser.emailVerified
-  );
+    // 4. If verified bootstrapped owner, ensure their /admins/{uid} entry exists
+    if (isOwner) {
+      try {
+        const adminRef = doc(db, 'admins', uid);
+        const adminSnap = await getDoc(adminRef);
+        if (!adminSnap.exists()) {
+          await setDoc(adminRef, {
+            uid,
+            email: newProfilePayload.email,
+            grantedBy: uid,
+            role: 'owner',
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+        }
+      } catch {
+        // Non-fatal
+      }
+    }
+
+    const createdUser = mapDocToUser(
+      uid,
+      {
+        ...newProfilePayload,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      isAdmin,
+      isOwner,
+      fbUser.emailVerified
+    );
+    cachedUserProfiles.set(fbUser.uid, createdUser);
+    return createdUser;
+  })();
+
+  inflightProfilePromises.set(fbUser.uid, promise);
+  try {
+    return await promise;
+  } finally {
+    inflightProfilePromises.delete(fbUser.uid);
+  }
 }
 
 async function fetchUserTransactionsRaw(uid: string): Promise<Transaction[]> {
@@ -311,7 +397,8 @@ async function fetchUserTransactionsRaw(uid: string): Promise<Transaction[]> {
     items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     return items;
   } catch (error) {
-    handleFirestoreError(error, OperationType.LIST, path);
+    console.warn('Error fetching transactions from Firestore:', error);
+    return [];
   }
 }
 
@@ -336,7 +423,8 @@ async function fetchUserCategoriesRaw(uid: string): Promise<Category[]> {
     });
     return [...DEFAULT_SYSTEM_CATEGORIES, ...custom];
   } catch (error) {
-    handleFirestoreError(error, OperationType.LIST, path);
+    console.warn('Error fetching custom categories from Firestore:', error);
+    return [...DEFAULT_SYSTEM_CATEGORIES];
   }
 }
 
@@ -360,7 +448,8 @@ async function fetchUserBudgetsRaw(uid: string): Promise<Budget[]> {
       };
     });
   } catch (error) {
-    handleFirestoreError(error, OperationType.LIST, path);
+    console.warn('Error fetching budgets from Firestore:', error);
+    return [];
   }
 }
 
@@ -368,6 +457,7 @@ export const api = {
   // --- Authentication ---
   async loginWithGoogle(): Promise<{ user: User; message: string }> {
     clearLegacyLocalStorage();
+    clearProfileCache();
     const cred = await signInWithPopup(auth, googleProvider);
     const user = await ensureUserProfileInFirestore(cred.user);
     return {
@@ -386,6 +476,7 @@ export const api = {
     currency?: string;
   }): Promise<{ user: User; token: string; message: string; requiresEmailVerification?: boolean }> {
     clearLegacyLocalStorage();
+    clearProfileCache();
     const cleanEmail = (data.email || '').trim().toLowerCase();
     if (!cleanEmail || !data.password) {
       throw new Error('Email and password (8+ characters) are required.');
@@ -423,6 +514,7 @@ export const api = {
 
   async login(email: string, password?: string): Promise<{ user: User; token: string; message: string }> {
     clearLegacyLocalStorage();
+    clearProfileCache();
     const cleanEmail = (email || '').trim().toLowerCase();
     if (!cleanEmail || !password) {
       throw new Error('Please enter both your email address and password.');
@@ -449,7 +541,8 @@ export const api = {
   },
 
   async reloadAndVerifyEmail(): Promise<{ user: User; emailVerified: boolean }> {
-    const fbUser = requireAuthUser();
+    const fbUser = await requireAuthUserAsync();
+    clearProfileCache();
     await fbUser.reload();
     await fbUser.getIdToken(true);
     const refreshed = auth.currentUser!;
@@ -458,26 +551,31 @@ export const api = {
   },
 
   async resendVerificationEmail(): Promise<{ message: string }> {
-    const fbUser = requireAuthUser();
+    const fbUser = await requireAuthUserAsync();
     await sendEmailVerification(fbUser);
     return { message: `Verification email sent to ${fbUser.email}` };
   },
 
   async logout(): Promise<void> {
     clearLegacyLocalStorage();
+    clearProfileCache();
     await signOut(auth);
   },
 
-  async getMe(): Promise<{ user: User }> {
-    const fbUser = requireAuthUser();
+  async getMe(forceRefresh = false): Promise<{ user: User }> {
+    const fbUser = await requireAuthUserAsync();
+    if (forceRefresh) {
+      cachedUserProfiles.delete(fbUser.uid);
+    }
     const user = await ensureUserProfileInFirestore(fbUser);
     return { user };
   },
 
   async updateProfile(updates: Partial<User>): Promise<{ user: User; message: string }> {
-    const fbUser = requireAuthUser();
-    const userPath = `users/${fbUser.uid}`;
-    const userRef = doc(db, 'users', fbUser.uid);
+    const fbUser = await requireAuthUserAsync();
+    const uid = sanitizeId(fbUser.uid);
+    const userPath = `users/${uid}`;
+    const userRef = doc(db, 'users', uid);
 
     let snap;
     try {
@@ -487,6 +585,7 @@ export const api = {
     }
 
     if (!snap || !snap.exists()) {
+      cachedUserProfiles.delete(fbUser.uid);
       const created = await ensureUserProfileInFirestore(fbUser, updates);
       return { user: created, message: 'Profile saved' };
     }
@@ -521,12 +620,12 @@ export const api = {
       handleFirestoreError(error, OperationType.UPDATE, userPath);
     }
 
-    const refreshed = await this.getMe();
+    const refreshed = await this.getMe(true);
     return { user: refreshed.user, message: 'Profile saved' };
   },
 
   async changePassword(currentPassword: string, newPassword: string): Promise<{ message: string }> {
-    const fbUser = requireAuthUser();
+    const fbUser = await requireAuthUserAsync();
     if (!fbUser.email) {
       throw new Error('Password update is only available for email/password accounts.');
     }
@@ -541,7 +640,7 @@ export const api = {
   },
 
   async exportUserDataArchive(): Promise<void> {
-    const fbUser = requireAuthUser();
+    const fbUser = await requireAuthUserAsync();
     const [meRes, categoriesRes, txRes, budgets, goalsRes, recRes, splitsRes, debtsRes] = await Promise.all([
       this.getMe(),
       this.getCategories(),
@@ -577,8 +676,8 @@ export const api = {
   },
 
   async deleteAccount(): Promise<{ message: string }> {
-    const fbUser = requireAuthUser();
-    const uid = fbUser.uid;
+    const fbUser = await requireAuthUserAsync();
+    const uid = sanitizeId(fbUser.uid);
     const collectionsToClean = [
       'transactions',
       'categories',
@@ -607,19 +706,20 @@ export const api = {
       handleFirestoreError(error, OperationType.DELETE, `users/${uid}`);
     }
 
+    clearProfileCache();
     await signOut(auth);
     return { message: 'Account and all associated cloud records deleted.' };
   },
 
   // --- Categories ---
   async getCategories(): Promise<{ categories: Category[] }> {
-    const fbUser = requireAuthUser();
+    const fbUser = await requireAuthUserAsync();
     const categories = await fetchUserCategoriesRaw(fbUser.uid);
     return { categories };
   },
 
   async createCategory(cat: Partial<Category>): Promise<{ category: Category }> {
-    const fbUser = requireAuthUser();
+    const fbUser = await requireAuthUserAsync();
     const id = sanitizeId(`cat_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
     const path = `categories/${id}`;
 
@@ -651,7 +751,7 @@ export const api = {
   },
 
   async deleteCategory(id: string): Promise<{ message: string }> {
-    requireAuthUser();
+    await requireAuthUserAsync();
     const cleanId = sanitizeId(id);
     const path = `categories/${cleanId}`;
     try {
@@ -671,7 +771,7 @@ export const api = {
     totalPages: number;
     summary: { income: number; expense: number; balance: number };
   }> {
-    const fbUser = requireAuthUser();
+    const fbUser = await requireAuthUserAsync();
     let list = await fetchUserTransactionsRaw(fbUser.uid);
 
     if (params.kind) list = list.filter((t) => t.kind === params.kind);
@@ -711,7 +811,7 @@ export const api = {
   },
 
   async createTransaction(tx: Partial<Transaction>): Promise<{ transaction: Transaction; message: string }> {
-    const fbUser = requireAuthUser();
+    const fbUser = await requireAuthUserAsync();
     const categories = await fetchUserCategoriesRaw(fbUser.uid);
     const matchedCat = categories.find((c) => c.id === tx.categoryId);
 
@@ -770,7 +870,7 @@ export const api = {
   },
 
   async updateTransaction(id: string, updates: Partial<Transaction>): Promise<{ transaction: Transaction; message: string }> {
-    const fbUser = requireAuthUser();
+    const fbUser = await requireAuthUserAsync();
     const cleanId = sanitizeId(id);
     const path = `transactions/${cleanId}`;
     const txRef = doc(db, 'transactions', cleanId);
@@ -855,7 +955,7 @@ export const api = {
   },
 
   async deleteTransaction(id: string): Promise<{ message: string }> {
-    requireAuthUser();
+    await requireAuthUserAsync();
     const cleanId = sanitizeId(id);
     const path = `transactions/${cleanId}`;
     try {
@@ -867,7 +967,7 @@ export const api = {
   },
 
   async bulkDeleteTransactions(ids: string[]): Promise<{ count: number; message: string }> {
-    requireAuthUser();
+    await requireAuthUserAsync();
     const batch = writeBatch(db);
     let count = 0;
     for (const rawId of ids) {
@@ -884,7 +984,7 @@ export const api = {
   },
 
   async importCsv(rows: any[]): Promise<{ imported: number; skippedDuplicates: number; errors: string[]; message: string }> {
-    requireAuthUser();
+    await requireAuthUserAsync();
     let count = 0;
     const errors: string[] = [];
     for (const row of rows) {
@@ -907,7 +1007,7 @@ export const api = {
 
   // --- Budgets ---
   async getBudgets(month?: string): Promise<BudgetResponse> {
-    const fbUser = requireAuthUser();
+    const fbUser = await requireAuthUserAsync();
     const [{ user }, userBudgets, allTxs] = await Promise.all([
       this.getMe(),
       fetchUserBudgetsRaw(fbUser.uid),
@@ -917,7 +1017,7 @@ export const api = {
   },
 
   async setBudget(budget: { categoryId?: string | null; amount: number; month?: string; warningThreshold?: number }): Promise<any> {
-    const fbUser = requireAuthUser();
+    const fbUser = await requireAuthUserAsync();
     const now = new Date();
     const month = sanitizeString(
       budget.month || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
@@ -968,7 +1068,7 @@ export const api = {
   },
 
   async deleteBudget(id: string): Promise<any> {
-    requireAuthUser();
+    await requireAuthUserAsync();
     const cleanId = sanitizeId(id);
     const path = `budgets/${cleanId}`;
     try {
@@ -981,7 +1081,7 @@ export const api = {
 
   // --- Savings Goals ---
   async getGoals(): Promise<{ goals: SavingsGoal[] }> {
-    const fbUser = requireAuthUser();
+    const fbUser = await requireAuthUserAsync();
     const path = 'savingsGoals';
     try {
       const q = query(collection(db, path), where('userId', '==', fbUser.uid));
@@ -1004,12 +1104,13 @@ export const api = {
       });
       return { goals };
     } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, path);
+      console.warn('Error fetching savings goals from Firestore:', error);
+      return { goals: [] };
     }
   },
 
   async createGoal(goal: Partial<SavingsGoal>): Promise<{ goal: SavingsGoal }> {
-    const fbUser = requireAuthUser();
+    const fbUser = await requireAuthUserAsync();
     const id = sanitizeId(`gl_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
     const path = `savingsGoals/${id}`;
     const targetAmount = Math.min(100000000, Math.max(1, roundMoney(Number(goal.targetAmount) || 5000)));
@@ -1049,7 +1150,7 @@ export const api = {
   },
 
   async depositGoal(id: string, amount: number, recordTransaction: boolean): Promise<any> {
-    requireAuthUser();
+    await requireAuthUserAsync();
     const cleanId = sanitizeId(id);
     const path = `savingsGoals/${cleanId}`;
     const goalRef = doc(db, 'savingsGoals', cleanId);
@@ -1100,7 +1201,7 @@ export const api = {
   },
 
   async deleteGoal(id: string): Promise<any> {
-    requireAuthUser();
+    await requireAuthUserAsync();
     const cleanId = sanitizeId(id);
     const path = `savingsGoals/${cleanId}`;
     try {
@@ -1113,7 +1214,7 @@ export const api = {
 
   // --- Recurring Payments ---
   async getRecurring(): Promise<{ recurring: RecurringPayment[] }> {
-    const fbUser = requireAuthUser();
+    const fbUser = await requireAuthUserAsync();
     const path = 'recurringPayments';
     try {
       const q = query(collection(db, path), where('userId', '==', fbUser.uid));
@@ -1139,12 +1240,13 @@ export const api = {
       });
       return { recurring };
     } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, path);
+      console.warn('Error fetching recurring payments from Firestore:', error);
+      return { recurring: [] };
     }
   },
 
   async createRecurring(rec: Partial<RecurringPayment>): Promise<{ recurring: RecurringPayment }> {
-    const fbUser = requireAuthUser();
+    const fbUser = await requireAuthUserAsync();
     const id = sanitizeId(`rec_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
     const path = `recurringPayments/${id}`;
 
@@ -1195,7 +1297,7 @@ export const api = {
   },
 
   async logRecurringTransaction(id: string): Promise<any> {
-    const fbUser = requireAuthUser();
+    const fbUser = await requireAuthUserAsync();
     const cleanId = sanitizeId(id);
     const path = `recurringPayments/${cleanId}`;
     let snap;
@@ -1230,7 +1332,7 @@ export const api = {
   },
 
   async deleteRecurring(id: string): Promise<any> {
-    requireAuthUser();
+    await requireAuthUserAsync();
     const cleanId = sanitizeId(id);
     const path = `recurringPayments/${cleanId}`;
     try {
@@ -1243,7 +1345,7 @@ export const api = {
 
   // --- Splits & Debts ---
   async getSplits(): Promise<{ splits: SplitExpense[] }> {
-    const fbUser = requireAuthUser();
+    const fbUser = await requireAuthUserAsync();
     const path = 'splitExpenses';
     try {
       const q = query(collection(db, path), where('userId', '==', fbUser.uid));
@@ -1266,12 +1368,13 @@ export const api = {
       });
       return { splits };
     } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, path);
+      console.warn('Error fetching split expenses from Firestore:', error);
+      return { splits: [] };
     }
   },
 
   async createSplit(split: Partial<SplitExpense>): Promise<{ split: SplitExpense }> {
-    const fbUser = requireAuthUser();
+    const fbUser = await requireAuthUserAsync();
     const id = sanitizeId(`spl_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
     const path = `splitExpenses/${id}`;
     const totalAmount = Math.min(100000000, Math.max(0, roundMoney(Number(split.totalAmount) || 0)));
@@ -1328,7 +1431,7 @@ export const api = {
   },
 
   async updateSplit(id: string, updates: Partial<SplitExpense>): Promise<any> {
-    requireAuthUser();
+    await requireAuthUserAsync();
     const cleanId = sanitizeId(id);
     const path = `splitExpenses/${cleanId}`;
     const splitRef = doc(db, 'splitExpenses', cleanId);
@@ -1369,7 +1472,7 @@ export const api = {
   },
 
   async deleteSplit(id: string): Promise<any> {
-    requireAuthUser();
+    await requireAuthUserAsync();
     const cleanId = sanitizeId(id);
     const path = `splitExpenses/${cleanId}`;
     try {
@@ -1381,7 +1484,7 @@ export const api = {
   },
 
   async getDebts(): Promise<{ debts: DebtRecord[] }> {
-    const fbUser = requireAuthUser();
+    const fbUser = await requireAuthUserAsync();
     const path = 'debts';
     try {
       const q = query(collection(db, path), where('userId', '==', fbUser.uid));
@@ -1403,12 +1506,13 @@ export const api = {
       });
       return { debts };
     } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, path);
+      console.warn('Error fetching debts from Firestore:', error);
+      return { debts: [] };
     }
   },
 
   async createDebt(debt: Partial<DebtRecord>): Promise<{ debt: DebtRecord }> {
-    const fbUser = requireAuthUser();
+    const fbUser = await requireAuthUserAsync();
     const id = sanitizeId(`dbt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
     const path = `debts/${id}`;
 
@@ -1441,7 +1545,7 @@ export const api = {
   },
 
   async updateDebt(id: string, updates: Partial<DebtRecord>): Promise<any> {
-    requireAuthUser();
+    await requireAuthUserAsync();
     const cleanId = sanitizeId(id);
     const path = `debts/${cleanId}`;
     const debtRef = doc(db, 'debts', cleanId);
@@ -1485,7 +1589,7 @@ export const api = {
   },
 
   async deleteDebt(id: string): Promise<any> {
-    requireAuthUser();
+    await requireAuthUserAsync();
     const cleanId = sanitizeId(id);
     const path = `debts/${cleanId}`;
     try {
@@ -1498,7 +1602,7 @@ export const api = {
 
   // --- Analytics, Insights & Budget Advisor (Computed from authenticated user's Firestore ledger) ---
   async getAnalytics(): Promise<AnalyticsResponse> {
-    const fbUser = requireAuthUser();
+    const fbUser = await requireAuthUserAsync();
     const [{ user }, allTxs, categories] = await Promise.all([
       this.getMe(),
       fetchUserTransactionsRaw(fbUser.uid),
@@ -1508,7 +1612,7 @@ export const api = {
   },
 
   async getInsights(): Promise<{ insights: FinancialInsight[]; context: any }> {
-    const fbUser = requireAuthUser();
+    const fbUser = await requireAuthUserAsync();
     const [{ user }, allTxs] = await Promise.all([
       this.getMe(),
       fetchUserTransactionsRaw(fbUser.uid),
@@ -1517,7 +1621,7 @@ export const api = {
   },
 
   async askAI(question: string): Promise<{ answer: string; deterministicCalculation: string }> {
-    const fbUser = requireAuthUser();
+    const fbUser = await requireAuthUserAsync();
     const [{ user }, allTxs, categories, recRes, goalsRes, debtsRes] = await Promise.all([
       this.getMe(),
       fetchUserTransactionsRaw(fbUser.uid),
@@ -1542,7 +1646,7 @@ export const api = {
     users: User[];
     admins: AdminRecord[];
   }> {
-    requireAuthUser();
+    await requireAuthUserAsync();
     let usersSnap;
     try {
       usersSnap = await getDocs(collection(db, 'users'));
@@ -1574,7 +1678,7 @@ export const api = {
     const users: User[] = usersSnap.docs.map((d) => {
       const data = d.data();
       const email = (data.email || '').toLowerCase();
-      const isPrimaryOwner = email === OWNER_ADMIN_EMAIL;
+      const isPrimaryOwner = BOOTSTRAPPED_ADMIN_EMAILS.has(email);
       const adminEntry = adminMap.get(d.id);
       const isAdmin = isPrimaryOwner || !!adminEntry;
       const isOwner = isPrimaryOwner || adminEntry?.role === 'owner';
@@ -1586,7 +1690,7 @@ export const api = {
   },
 
   async adminUpdateUserStatus(targetUserId: string, newStatus: 'active' | 'suspended'): Promise<void> {
-    requireAuthUser();
+    await requireAuthUserAsync();
     const cleanId = sanitizeId(targetUserId);
     const path = `users/${cleanId}`;
     try {
@@ -1600,7 +1704,7 @@ export const api = {
   },
 
   async adminGrantAdminAccess(targetUser: User): Promise<void> {
-    const fbUser = requireAuthUser();
+    const fbUser = await requireAuthUserAsync();
     const cleanId = sanitizeId(targetUser.id);
     const path = `admins/${cleanId}`;
     try {
@@ -1618,8 +1722,8 @@ export const api = {
   },
 
   async adminRevokeAdminAccess(targetUser: User): Promise<void> {
-    requireAuthUser();
-    if (targetUser.email.toLowerCase() === OWNER_ADMIN_EMAIL) {
+    await requireAuthUserAsync();
+    if (BOOTSTRAPPED_ADMIN_EMAILS.has(targetUser.email.toLowerCase())) {
       throw new Error('Cannot revoke primary platform owner privileges.');
     }
     const cleanId = sanitizeId(targetUser.id);

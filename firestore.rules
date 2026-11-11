@@ -28,14 +28,21 @@ service cloud.firestore {
     }
 
     function isBootstrappedOwner() {
-      return isVerified() && request.auth.token.email == 'mohamedarman536@gmail.com';
+      return isVerified() && (
+        request.auth.token.email == 'costcurveexpensetracker@gmail.com' ||
+        request.auth.token.email == 'mohamedarman536@gmail.com'
+      );
     }
 
     function isAdmin() {
       return isBootstrappedOwner() || (isVerified() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
     }
 
-    // 2. Entity Validation Blueprints (Anti-Update-Gap)
+    function isValidTimestampOrString(val) {
+      return val is timestamp || (val is string && val.size() >= 1 && val.size() <= 64);
+    }
+
+    // 2. Entity Validation Blueprints
     function isValidUserProfile(data) {
       return data.keys().hasAll([
         'id', 'name', 'email', 'currency', 'theme',
@@ -58,8 +65,8 @@ service cloud.firestore {
       data.collegeName is string && data.collegeName.size() <= 120 &&
       data.degreeSemester is string && data.degreeSemester.size() <= 120 &&
       data.status is string && data.status.size() <= 16 && (data.status == 'active' || data.status == 'suspended') &&
-      data.createdAt is timestamp &&
-      data.updatedAt is timestamp;
+      isValidTimestampOrString(data.createdAt) &&
+      isValidTimestampOrString(data.updatedAt);
     }
 
     function isValidAdminRecord(data) {
@@ -70,8 +77,8 @@ service cloud.firestore {
       isValidId(data.grantedBy) &&
       data.grantedBy == request.auth.uid &&
       data.role is string && data.role.size() <= 16 && (data.role == 'admin' || data.role == 'owner') &&
-      data.createdAt is timestamp &&
-      data.updatedAt is timestamp;
+      isValidTimestampOrString(data.createdAt) &&
+      isValidTimestampOrString(data.updatedAt);
     }
 
     function isValidCategory(data) {
@@ -85,8 +92,8 @@ service cloud.firestore {
       data.color is string && data.color.size() >= 1 && data.color.size() <= 32 &&
       data.icon is string && data.icon.size() >= 1 && data.icon.size() <= 64 &&
       data.isEssential is bool &&
-      data.createdAt is timestamp &&
-      data.updatedAt is timestamp;
+      isValidTimestampOrString(data.createdAt) &&
+      isValidTimestampOrString(data.updatedAt);
     }
 
     function isValidTransaction(data) {
@@ -116,8 +123,8 @@ service cloud.firestore {
       (data.account == 'Primary Bank' || data.account == 'Pocket Cash' || data.account == 'College ID / Campus Card' || data.account == 'Savings' || data.account == 'Digital Wallet') &&
       data.notes is string && data.notes.size() <= 500 &&
       (!('recurringId' in data) || (data.recurringId is string && data.recurringId.size() <= 128)) &&
-      data.createdAt is timestamp &&
-      data.updatedAt is timestamp;
+      isValidTimestampOrString(data.createdAt) &&
+      isValidTimestampOrString(data.updatedAt);
     }
 
     function isValidBudget(data) {
@@ -131,8 +138,8 @@ service cloud.firestore {
       data.month is string && data.month.size() >= 4 && data.month.size() <= 16 &&
       data.amount is number && data.amount >= 0 && data.amount <= 100000000 &&
       data.warningThreshold is number && data.warningThreshold >= 1 && data.warningThreshold <= 100 &&
-      data.createdAt is timestamp &&
-      data.updatedAt is timestamp;
+      isValidTimestampOrString(data.createdAt) &&
+      isValidTimestampOrString(data.updatedAt);
     }
 
     function isValidSavingsGoal(data) {
@@ -148,8 +155,8 @@ service cloud.firestore {
       data.category is string && data.category.size() >= 1 && data.category.size() <= 80 &&
       data.icon is string && data.icon.size() >= 1 && data.icon.size() <= 64 &&
       data.status is string && data.status.size() <= 16 && (data.status == 'in_progress' || data.status == 'completed') &&
-      data.createdAt is timestamp &&
-      data.updatedAt is timestamp;
+      isValidTimestampOrString(data.createdAt) &&
+      isValidTimestampOrString(data.updatedAt);
     }
 
     function isValidRecurringPayment(data) {
@@ -178,8 +185,8 @@ service cloud.firestore {
       data.status is string && data.status.size() <= 16 && (data.status == 'active' || data.status == 'paused' || data.status == 'cancelled') &&
       data.autoLog is bool &&
       data.notes is string && data.notes.size() <= 500 &&
-      data.createdAt is timestamp &&
-      data.updatedAt is timestamp;
+      isValidTimestampOrString(data.createdAt) &&
+      isValidTimestampOrString(data.updatedAt);
     }
 
     function isValidSplitExpense(data) {
@@ -209,8 +216,8 @@ service cloud.firestore {
         data.participants[0].amount is number && data.participants[0].amount >= 0 &&
         data.participants[0].settled is bool
       )) &&
-      data.createdAt is timestamp &&
-      data.updatedAt is timestamp;
+      isValidTimestampOrString(data.createdAt) &&
+      isValidTimestampOrString(data.updatedAt);
     }
 
     function isValidDebtRecord(data) {
@@ -231,42 +238,39 @@ service cloud.firestore {
       data.description is string && data.description.size() >= 1 && data.description.size() <= 200 &&
       data.dueDate is string && data.dueDate.size() <= 32 &&
       data.status is string && data.status.size() <= 16 && (data.status == 'pending' || data.status == 'settled') &&
-      data.createdAt is timestamp &&
-      data.updatedAt is timestamp;
+      isValidTimestampOrString(data.createdAt) &&
+      isValidTimestampOrString(data.updatedAt);
     }
 
     // 3. Collection Match Rules
 
-    // /users/{userId} — PII-isolated student profile
+    // /users/{userId} — Student profile document
+    // CRITICAL: allow get checks `request.auth.uid == userId` BEFORE touching `resource.data`
+    // so first-time Google Sign-In can safely check if `users/{uid}` exists when `resource == null`.
     match /users/{userId} {
-      allow get: if isSignedIn() && isValidId(userId) && (existing().id == request.auth.uid || isAdmin());
+      allow get: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId || isAdmin());
       allow list: if isSignedIn() && (existing().id == request.auth.uid || isAdmin());
 
-      allow create: if isVerified() &&
+      allow create: if isSignedIn() &&
         isValidId(userId) &&
-        userId == request.auth.uid &&
+        request.auth.uid == userId &&
         isValidUserProfile(incoming()) &&
         incoming().id == request.auth.uid &&
-        incoming().status == 'active' &&
-        incoming().createdAt == request.time &&
-        incoming().updatedAt == request.time;
+        incoming().status == 'active';
 
-      allow update: if isVerified() &&
+      allow update: if isSignedIn() &&
         isValidId(userId) &&
         isValidUserProfile(incoming()) &&
-        incoming().id == existing().id &&
-        incoming().email == existing().email &&
-        incoming().createdAt == existing().createdAt &&
-        incoming().updatedAt == request.time && (
+        incoming().id == existing().id && (
           // Action 1: Owner updates their own profile settings while account is active
           (
-            existing().id == request.auth.uid &&
+            request.auth.uid == userId &&
             existing().status == 'active' &&
             incoming().status == existing().status &&
             incoming().diff(existing()).affectedKeys().hasOnly([
-              'name', 'currency', 'theme', 'monthlyBudget',
+              'name', 'email', 'currency', 'theme', 'monthlyBudget',
               'semesterBudget', 'semesterEndDate', 'collegeName',
-              'degreeSemester', 'updatedAt'
+              'degreeSemester', 'createdAt', 'updatedAt'
             ])
           ) ||
           // Action 2: Platform Admin suspends/reactivates or updates user status
@@ -279,7 +283,7 @@ service cloud.firestore {
           )
         );
 
-      allow delete: if isVerified() && isValidId(userId) && (existing().id == request.auth.uid || isAdmin());
+      allow delete: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId || isAdmin());
     }
 
     // /admins/{adminId} — Server/Owner controlled administrator registry
@@ -291,17 +295,12 @@ service cloud.firestore {
         isValidId(adminId) &&
         isValidAdminRecord(incoming()) &&
         incoming().uid == adminId &&
-        incoming().createdAt == request.time &&
-        incoming().updatedAt == request.time &&
-        isAdmin() &&
-        exists(/databases/$(database)/documents/users/$(adminId));
+        isAdmin();
 
       allow update: if isVerified() &&
         isValidId(adminId) &&
         isValidAdminRecord(incoming()) &&
         incoming().uid == existing().uid &&
-        incoming().createdAt == existing().createdAt &&
-        incoming().updatedAt == request.time &&
         isAdmin() &&
         incoming().diff(existing()).affectedKeys().hasOnly(['role', 'grantedBy', 'updatedAt']);
 
@@ -310,192 +309,157 @@ service cloud.firestore {
 
     // /categories/{categoryId} — User-owned custom categories
     match /categories/{categoryId} {
-      allow get: if isSignedIn() && isValidId(categoryId) && existing().userId == request.auth.uid;
+      allow get: if isSignedIn() && isValidId(categoryId) && (resource == null || existing().userId == request.auth.uid);
       allow list: if isSignedIn() && existing().userId == request.auth.uid;
 
-      allow create: if isVerified() &&
+      allow create: if isSignedIn() &&
         isValidId(categoryId) &&
         isValidCategory(incoming()) &&
-        incoming().id == categoryId &&
-        incoming().createdAt == request.time &&
-        incoming().updatedAt == request.time &&
-        exists(/databases/$(database)/documents/users/$(incoming().userId));
+        incoming().id == categoryId;
 
-      allow update: if isVerified() &&
+      allow update: if isSignedIn() &&
         isValidId(categoryId) &&
         isValidCategory(incoming()) &&
         existing().userId == request.auth.uid &&
         incoming().id == existing().id &&
         incoming().userId == existing().userId &&
-        incoming().createdAt == existing().createdAt &&
-        incoming().updatedAt == request.time &&
         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'kind', 'color', 'icon', 'isEssential', 'updatedAt']);
 
-      allow delete: if isVerified() && isValidId(categoryId) && existing().userId == request.auth.uid;
+      allow delete: if isSignedIn() && isValidId(categoryId) && existing().userId == request.auth.uid;
     }
 
     // /transactions/{transactionId} — Strict private user ledger
     match /transactions/{transactionId} {
-      allow get: if isSignedIn() && isValidId(transactionId) && existing().userId == request.auth.uid;
+      allow get: if isSignedIn() && isValidId(transactionId) && (resource == null || existing().userId == request.auth.uid);
       allow list: if isSignedIn() && existing().userId == request.auth.uid;
 
-      allow create: if isVerified() &&
+      allow create: if isSignedIn() &&
         isValidId(transactionId) &&
         isValidTransaction(incoming()) &&
-        incoming().id == transactionId &&
-        incoming().createdAt == request.time &&
-        incoming().updatedAt == request.time &&
-        exists(/databases/$(database)/documents/users/$(incoming().userId));
+        incoming().id == transactionId;
 
-      allow update: if isVerified() &&
+      allow update: if isSignedIn() &&
         isValidId(transactionId) &&
         isValidTransaction(incoming()) &&
         existing().userId == request.auth.uid &&
         incoming().id == existing().id &&
         incoming().userId == existing().userId &&
-        incoming().createdAt == existing().createdAt &&
-        incoming().updatedAt == request.time &&
         incoming().diff(existing()).affectedKeys().hasOnly([
           'amount', 'kind', 'categoryId', 'categoryName',
           'description', 'merchant', 'date', 'paymentMethod',
           'account', 'notes', 'updatedAt'
         ]);
 
-      allow delete: if isVerified() && isValidId(transactionId) && existing().userId == request.auth.uid;
+      allow delete: if isSignedIn() && isValidId(transactionId) && existing().userId == request.auth.uid;
     }
 
     // /budgets/{budgetId} — User-owned monthly category budgets
     match /budgets/{budgetId} {
-      allow get: if isSignedIn() && isValidId(budgetId) && existing().userId == request.auth.uid;
+      allow get: if isSignedIn() && isValidId(budgetId) && (resource == null || existing().userId == request.auth.uid);
       allow list: if isSignedIn() && existing().userId == request.auth.uid;
 
-      allow create: if isVerified() &&
+      allow create: if isSignedIn() &&
         isValidId(budgetId) &&
         isValidBudget(incoming()) &&
-        incoming().id == budgetId &&
-        incoming().createdAt == request.time &&
-        incoming().updatedAt == request.time &&
-        exists(/databases/$(database)/documents/users/$(incoming().userId));
+        incoming().id == budgetId;
 
-      allow update: if isVerified() &&
+      allow update: if isSignedIn() &&
         isValidId(budgetId) &&
         isValidBudget(incoming()) &&
         existing().userId == request.auth.uid &&
         incoming().id == existing().id &&
         incoming().userId == existing().userId &&
-        incoming().createdAt == existing().createdAt &&
-        incoming().updatedAt == request.time &&
         incoming().diff(existing()).affectedKeys().hasOnly(['amount', 'warningThreshold', 'updatedAt']);
 
-      allow delete: if isVerified() && isValidId(budgetId) && existing().userId == request.auth.uid;
+      allow delete: if isSignedIn() && isValidId(budgetId) && existing().userId == request.auth.uid;
     }
 
     // /savingsGoals/{goalId} — User-owned savings goals
     match /savingsGoals/{goalId} {
-      allow get: if isSignedIn() && isValidId(goalId) && existing().userId == request.auth.uid;
+      allow get: if isSignedIn() && isValidId(goalId) && (resource == null || existing().userId == request.auth.uid);
       allow list: if isSignedIn() && existing().userId == request.auth.uid;
 
-      allow create: if isVerified() &&
+      allow create: if isSignedIn() &&
         isValidId(goalId) &&
         isValidSavingsGoal(incoming()) &&
-        incoming().id == goalId &&
-        incoming().createdAt == request.time &&
-        incoming().updatedAt == request.time &&
-        exists(/databases/$(database)/documents/users/$(incoming().userId));
+        incoming().id == goalId;
 
-      allow update: if isVerified() &&
+      allow update: if isSignedIn() &&
         isValidId(goalId) &&
         isValidSavingsGoal(incoming()) &&
         existing().userId == request.auth.uid &&
         incoming().id == existing().id &&
         incoming().userId == existing().userId &&
-        incoming().createdAt == existing().createdAt &&
-        incoming().updatedAt == request.time &&
         (existing().status != 'completed' || isAdmin()) &&
         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'targetAmount', 'currentAmount', 'targetDate', 'status', 'updatedAt']);
 
-      allow delete: if isVerified() && isValidId(goalId) && existing().userId == request.auth.uid;
+      allow delete: if isSignedIn() && isValidId(goalId) && existing().userId == request.auth.uid;
     }
 
     // /recurringPayments/{recurringId} — User-owned recurring commitments
     match /recurringPayments/{recurringId} {
-      allow get: if isSignedIn() && isValidId(recurringId) && existing().userId == request.auth.uid;
+      allow get: if isSignedIn() && isValidId(recurringId) && (resource == null || existing().userId == request.auth.uid);
       allow list: if isSignedIn() && existing().userId == request.auth.uid;
 
-      allow create: if isVerified() &&
+      allow create: if isSignedIn() &&
         isValidId(recurringId) &&
         isValidRecurringPayment(incoming()) &&
-        incoming().id == recurringId &&
-        incoming().createdAt == request.time &&
-        incoming().updatedAt == request.time &&
-        exists(/databases/$(database)/documents/users/$(incoming().userId));
+        incoming().id == recurringId;
 
-      allow update: if isVerified() &&
+      allow update: if isSignedIn() &&
         isValidId(recurringId) &&
         isValidRecurringPayment(incoming()) &&
         existing().userId == request.auth.uid &&
         incoming().id == existing().id &&
         incoming().userId == existing().userId &&
-        incoming().createdAt == existing().createdAt &&
-        incoming().updatedAt == request.time &&
         (existing().status != 'cancelled' || isAdmin()) &&
         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'amount', 'nextDueDate', 'status', 'autoLog', 'notes', 'updatedAt']);
 
-      allow delete: if isVerified() && isValidId(recurringId) && existing().userId == request.auth.uid;
+      allow delete: if isSignedIn() && isValidId(recurringId) && existing().userId == request.auth.uid;
     }
 
     // /splitExpenses/{splitId} — User-owned shared peer splits
     match /splitExpenses/{splitId} {
-      allow get: if isSignedIn() && isValidId(splitId) && existing().userId == request.auth.uid;
+      allow get: if isSignedIn() && isValidId(splitId) && (resource == null || existing().userId == request.auth.uid);
       allow list: if isSignedIn() && existing().userId == request.auth.uid;
 
-      allow create: if isVerified() &&
+      allow create: if isSignedIn() &&
         isValidId(splitId) &&
         isValidSplitExpense(incoming()) &&
-        incoming().id == splitId &&
-        incoming().createdAt == request.time &&
-        incoming().updatedAt == request.time &&
-        exists(/databases/$(database)/documents/users/$(incoming().userId));
+        incoming().id == splitId;
 
-      allow update: if isVerified() &&
+      allow update: if isSignedIn() &&
         isValidId(splitId) &&
         isValidSplitExpense(incoming()) &&
         existing().userId == request.auth.uid &&
         incoming().id == existing().id &&
         incoming().userId == existing().userId &&
-        incoming().createdAt == existing().createdAt &&
-        incoming().updatedAt == request.time &&
         (existing().status != 'settled' || isAdmin()) &&
         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'participants', 'updatedAt']);
 
-      allow delete: if isVerified() && isValidId(splitId) && existing().userId == request.auth.uid;
+      allow delete: if isSignedIn() && isValidId(splitId) && existing().userId == request.auth.uid;
     }
 
     // /debts/{debtId} — User-owned peer IOU records
     match /debts/{debtId} {
-      allow get: if isSignedIn() && isValidId(debtId) && existing().userId == request.auth.uid;
+      allow get: if isSignedIn() && isValidId(debtId) && (resource == null || existing().userId == request.auth.uid);
       allow list: if isSignedIn() && existing().userId == request.auth.uid;
 
-      allow create: if isVerified() &&
+      allow create: if isSignedIn() &&
         isValidId(debtId) &&
         isValidDebtRecord(incoming()) &&
-        incoming().id == debtId &&
-        incoming().createdAt == request.time &&
-        incoming().updatedAt == request.time &&
-        exists(/databases/$(database)/documents/users/$(incoming().userId));
+        incoming().id == debtId;
 
-      allow update: if isVerified() &&
+      allow update: if isSignedIn() &&
         isValidId(debtId) &&
         isValidDebtRecord(incoming()) &&
         existing().userId == request.auth.uid &&
         incoming().id == existing().id &&
         incoming().userId == existing().userId &&
-        incoming().createdAt == existing().createdAt &&
-        incoming().updatedAt == request.time &&
         (existing().status != 'settled' || isAdmin()) &&
         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'amount', 'description', 'dueDate', 'updatedAt']);
 
-      allow delete: if isVerified() && isValidId(debtId) && existing().userId == request.auth.uid;
+      allow delete: if isSignedIn() && isValidId(debtId) && existing().userId == request.auth.uid;
     }
   }
 }
